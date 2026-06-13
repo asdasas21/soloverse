@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Award, BookOpen, Shield, ChevronRight } from 'lucide-react';
+import { Award, BookOpen, Shield, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import RadarChartWrapper from '@/components/RadarChart';
 import {
@@ -54,12 +54,14 @@ function useCountUp(target: number, duration = 1200) {
   return value;
 }
 
-function ScoreCard({ dim, score }: { dim: Dimension; score: number }) {
+function ScoreCard({ dim, score, index }: { dim: Dimension; score: number; index: number }) {
   const displayed = useCountUp(score);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.1, duration: 0.4 }}
       className="rounded-xl p-4 border"
       style={{
         background: 'var(--color-card)',
@@ -78,8 +80,9 @@ function ScoreCard({ dim, score }: { dim: Dimension; score: number }) {
       <div className="h-1.5 rounded-full" style={{ background: '#e8e6dc' }}>
         <motion.div
           initial={{ width: 0 }}
-          animate={{ width: `${score}%` }}
-          transition={{ duration: 1, ease: 'easeOut' }}
+          whileInView={{ width: `${score}%` }}
+          viewport={{ once: true }}
+          transition={{ delay: index * 0.1 + 0.3, duration: 0.8, ease: 'easeOut' }}
           className="h-full rounded-full"
           style={{ background: 'var(--color-brand)' }}
         />
@@ -119,6 +122,11 @@ export default function Profile() {
   return (
     <div className="min-h-screen pb-12" style={{ background: 'var(--color-bg)' }}>
       <div className="max-w-2xl mx-auto px-4 pt-8">
+        {/* Back button */}
+        <Link to="/" className="inline-flex items-center gap-1 mb-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <ArrowLeft size={16} /> 返回
+        </Link>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -139,7 +147,11 @@ export default function Profile() {
               {certLevel && (
                 <span
                   className="inline-flex items-center gap-1 text-sm font-semibold px-3 py-0.5 rounded-full"
-                  style={{ background: 'rgba(201,100,66,0.12)', color: 'var(--color-brand)' }}
+                  style={{
+                    background: 'rgba(201,100,66,0.12)',
+                    color: 'var(--color-brand)',
+                    animation: 'badge-glow 2s ease-in-out infinite',
+                  }}
                 >
                   <Award size={14} /> {certLevel} {levelLabel}
                 </span>
@@ -170,14 +182,14 @@ export default function Profile() {
             能力雷达图
           </h2>
           <div className="w-full aspect-square max-w-sm mx-auto">
-            <RadarChartWrapper data={radarData} title="能力画像" />
+            <RadarChartWrapper data={radarData} title="能力画像" animate />
           </div>
         </motion.div>
 
         {/* Dimension Detail Cards */}
         <div className="grid grid-cols-2 gap-3 mb-8">
-          {dims.map((d) => (
-            <ScoreCard key={d} dim={d} score={portrait[d]} />
+          {dims.map((d, i) => (
+            <ScoreCard key={d} dim={d} score={portrait[d]} index={i} />
           ))}
         </div>
 
@@ -196,10 +208,7 @@ export default function Profile() {
               <div
                 key={t.name}
                 className="flex items-center justify-between rounded-lg px-4 py-3 border"
-                style={{
-                  background: 'var(--color-card)',
-                  borderColor: 'var(--color-border)',
-                }}
+                style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
               >
                 <div>
                   <div className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{t.name}</div>
@@ -231,7 +240,11 @@ export default function Profile() {
               <div className="flex items-center gap-3 mb-2">
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
-                  style={{ background: 'var(--color-brand)', color: '#fff' }}
+                  style={{
+                    background: 'var(--color-brand)',
+                    color: '#fff',
+                    animation: 'badge-glow 2s ease-in-out infinite',
+                  }}
                 >
                   {certLevel}
                 </div>
@@ -260,6 +273,13 @@ export default function Profile() {
           )}
         </motion.div>
       </div>
+
+      <style>{`
+        @keyframes badge-glow {
+          0%, 100% { box-shadow: 0 0 4px rgba(201,100,66,0.3); }
+          50% { box-shadow: 0 0 12px rgba(201,100,66,0.6), 0 0 20px rgba(201,100,66,0.2); }
+        }
+      `}</style>
     </div>
   );
 }

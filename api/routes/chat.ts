@@ -50,13 +50,15 @@ router.post('/', (req: Request, res: Response): void => {
       clearInterval(interval)
 
       if (shouldEvaluate) {
+        const seed = (sessionId + message).split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+        const pseudoRandom = (offset: number) => ((seed + offset * 127) % 100) / 100
         const scores = {
-          curiosity: Math.round(60 + Math.random() * 30),
-          reliability: Math.round(60 + Math.random() * 30),
-          factChecking: Math.round(60 + Math.random() * 30),
-          diverseThinking: Math.round(60 + Math.random() * 30),
-          uncertaintyTolerance: Math.round(60 + Math.random() * 30),
-          lowEgoHighDrive: Math.round(60 + Math.random() * 30),
+          curiosity: Math.round(60 + pseudoRandom(1) * 30),
+          reliability: Math.round(60 + pseudoRandom(2) * 30),
+          factChecking: Math.round(60 + pseudoRandom(3) * 30),
+          diverseThinking: Math.round(60 + pseudoRandom(4) * 30),
+          uncertaintyTolerance: Math.round(60 + pseudoRandom(5) * 30),
+          lowEgoHighDrive: Math.round(60 + pseudoRandom(6) * 30),
         }
         res.write(`event: evaluation\ndata: ${JSON.stringify(scores)}\n\n`)
       }

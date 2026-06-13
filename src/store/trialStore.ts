@@ -79,15 +79,18 @@ export const useTrialStore = create<TrialState>((set) => ({
   setTyping: (typing) => set({ isTyping: typing }),
   submitCode: (sessionId, codeUrl: string) => {
     void codeUrl;
-    return set((state) => ({
-      trialSessions: {
-        ...state.trialSessions,
-        [sessionId]: {
-          ...(state.trialSessions[sessionId] || {}),
-          status: "submitted",
-        } as TrialSession,
-      },
-    }));
+    return set((state) => {
+      if (!state.trialSessions[sessionId]) return state;
+      return {
+        trialSessions: {
+          ...state.trialSessions,
+          [sessionId]: {
+            ...state.trialSessions[sessionId],
+            status: "submitted",
+          },
+        },
+      };
+    });
   },
   initSession: (trialId) =>
     set((state) => {

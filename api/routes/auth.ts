@@ -12,6 +12,7 @@ const router = Router()
  */
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
   // TODO: Implement register logic
+  res.json({ success: true, message: 'not implemented' })
 })
 
 /**
@@ -20,6 +21,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
  */
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   // TODO: Implement login logic
+  res.json({ success: true, message: 'not implemented' })
 })
 
 /**
@@ -28,6 +30,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
  */
 router.post('/logout', async (req: Request, res: Response): Promise<void> => {
   // TODO: Implement logout logic
+  res.json({ success: true, message: 'not implemented' })
 })
 
 export default router

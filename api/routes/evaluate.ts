@@ -79,10 +79,17 @@ router.post('/', (req: Request, res: Response): void => {
   // Step 2: map D scores → EMA events for portrait
   const events: EMAEvent[] = []
   const now = Date.now()
+  let sumWeights = 0
+  for (const [dKey] of Object.entries(dScores)) {
+    const weights = D2PORTRAIT[dKey] ?? {}
+    for (const weight of Object.values(weights)) {
+      sumWeights += weight
+    }
+  }
   for (const [dKey, raw] of Object.entries(dScores)) {
     const weights = D2PORTRAIT[dKey] ?? {}
     for (const [dim, weight] of Object.entries(weights)) {
-      events.push({ dimension: dim as Dimension, scoreRaw: raw * weight * 3, isImplicit: false, timestamp: now - Math.random() * 100000 })
+      events.push({ dimension: dim as Dimension, scoreRaw: Math.min(1, raw * weight / sumWeights), isImplicit: false, timestamp: now })
     }
   }
 

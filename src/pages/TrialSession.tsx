@@ -81,12 +81,20 @@ export default function TrialSession() {
   useEffect(() => { if (id) initSession(id); }, [id, initSession]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [currentMessages, streamingText]);
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
   const simulateStream = useCallback((text: string) => {
     setTyping(true); setStreamingText("");
     let i = 0;
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       if (i < text.length) { setStreamingText(text.slice(0, i + 1)); i++; }
-      else { clearInterval(interval); setStreamingText(""); setTyping(false); addMessage("agent", text); }
+      else { clearInterval(intervalRef.current!); intervalRef.current = null; setStreamingText(""); setTyping(false); addMessage("agent", text); }
     }, 30);
   }, [addMessage, setTyping]);
 

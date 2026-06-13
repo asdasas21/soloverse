@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Award, BookOpen, Shield, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -108,9 +108,12 @@ const dims: Dimension[] = [
 ];
 
 export default function Profile() {
-  const portrait = computePortrait(generateMockEvents(MOCK_TARGETS));
-  const certScore = computeCertScore(portrait);
-  const certLevel = getCertLevel(certScore);
+  const { portrait, certScore, certLevel } = useMemo(() => {
+    const p = computePortrait(generateMockEvents(MOCK_TARGETS));
+    const cs = computeCertScore(p);
+    const cl = getCertLevel(cs);
+    return { portrait: p, certScore: cs, certLevel: cl };
+  }, []);
 
   const radarData = dims.map((d) => ({
     name: DIM_LABELS[d],
@@ -161,7 +164,7 @@ export default function Profile() {
               </span>
             </div>
           </div>
-          <Link to="/certificate" className="shrink-0">
+          <Link to="/cert/user-1" className="shrink-0">
             <ChevronRight size={20} style={{ color: 'var(--color-text-tertiary)' }} />
           </Link>
         </motion.div>

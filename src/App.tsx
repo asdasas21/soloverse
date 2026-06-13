@@ -14,6 +14,7 @@ export default function App() {
         <Route path="/trials/:id" element={<TrialSession />} />
         <Route path="/profile/:id" element={<Profile />} />
         <Route path="/cert/:id" element={<Certificate />} />
+        <Route path="*" element={<div>404 - Page Not Found</div>} />
       </Routes>
     </Router>
   );

@@ -42,12 +42,7 @@ export default function Certificate() {
     try {
       await navigator.clipboard.writeText(window.location.href);
     } catch {
-      const input = document.createElement('input');
-      input.value = window.location.href;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand('copy');
-      document.body.removeChild(input);
+      await navigator.clipboard.writeText(window.location.href);
     }
     setToast(true);
     setTimeout(() => setToast(false), 2000);

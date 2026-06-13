@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Swords, Code, Award } from 'lucide-react';
 import CountUp from '@/components/CountUp';
@@ -16,7 +16,7 @@ const stats = [
   { target: 63, suffix: '%', label: '企业使用AI招聘' },
 ];
 
-const SplitText = ({ text, className, style }: { text: string; className?: string; style?: React.CSSProperties }) => (
+const SplitText = ({ text, className }: { text: string; className?: string }) => (
   <span>
     {text.split('').map((char, i) => (
       <motion.span key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -28,7 +28,8 @@ const SplitText = ({ text, className, style }: { text: string; className?: strin
 );
 
 const MagnetButton = ({ children, to, className, style }: { children: React.ReactNode; to: string; className?: string; style?: React.CSSProperties }) => {
-  const ref = useRef<HTMLAnchorElement>(null);
+  const navigate = useNavigate();
+  const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const handleMouse = (e: React.MouseEvent) => {
     if (!ref.current) return;
@@ -36,13 +37,13 @@ const MagnetButton = ({ children, to, className, style }: { children: React.Reac
     setPos({ x: (e.clientX - rect.left - rect.width / 2) * 0.15, y: (e.clientY - rect.top - rect.height / 2) * 0.15 });
   };
   return (
-    <motion.a ref={ref} href={to} animate={{ x: pos.x, y: pos.y }}
+    <motion.div ref={ref} animate={{ x: pos.x, y: pos.y }}
       transition={{ type: 'spring', stiffness: 150, damping: 15 }}
       onMouseMove={handleMouse} onMouseLeave={() => setPos({ x: 0, y: 0 })}
       className={className} style={style}
-      onClick={(e) => { e.preventDefault(); window.location.href = to; }}>
+      onClick={() => navigate(to)}>
       {children}
-    </motion.a>
+    </motion.div>
   );
 };
 

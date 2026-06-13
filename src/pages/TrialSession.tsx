@@ -244,7 +244,7 @@ export default function TrialSession() {
                 if (agentMessage) addMessage("agent", agentMessage);
                 setTurnCount((c) => c + 1);
               }
-            } catch {}
+            } catch { /* SSE parse skip */ }
           }
         }
       }
@@ -560,7 +560,7 @@ export default function TrialSession() {
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm" style={{ color: "#5e5d59" }}>
-                      综合分 <span className="font-bold text-lg" style={{ color: "#c96442" }}>{evaluation.certification?.certScore ?? "—"}</span>
+                      综合分 <span className="font-bold text-lg" style={{ color: "#c96442" }}>{evaluation.certification?.certScore ?? evaluation.certScore ?? "—"}</span>
                     </span>
                     <motion.button
                       whileHover={{ scale: 1.05, x: 2 }}
@@ -598,6 +598,25 @@ export default function TrialSession() {
                     <h2 className="text-sm font-semibold" style={{ color: "#141413" }}>试炼概览</h2>
                   </div>
                   <p className="text-xs leading-relaxed" style={{ color: "#5e5d59" }}>{trialData.description}</p>
+                </div>
+
+                {/* 评分维度说明 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <i className="bi bi-info-circle" style={{ fontSize: "12px", color: "#c96442" }} />
+                    <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>评分维度</h3>
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(DIM_LABELS).map(([key, label]) => (
+                      <div key={key} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#5e5d59" }}>
+                        <i className={`bi ${DIM_ICONS[key]}`} style={{ fontSize: "10px", color: "#c96442" }} />
+                        <span>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] mt-2" style={{ color: "#87867f" }}>
+                    AI 将从以上 6 个维度实时评估，综合分 ≥ 60 可获得认证
+                  </p>
                 </div>
 
                 {liveScores ? (

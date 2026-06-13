@@ -65,7 +65,7 @@ export function DemoChat() {
                   return [...m, { role: 'agent', content: agentText }];
                 });
               }
-            } catch {}
+            } catch { /* SSE parse skip */ }
           }
         }
       }

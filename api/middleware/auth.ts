@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express'
+import type { Request } from 'express'
 import { createClient } from '@supabase/supabase-js'
 
 let _adminClient: ReturnType<typeof createClient> | null = null

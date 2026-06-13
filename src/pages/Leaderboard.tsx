@@ -90,12 +90,21 @@ export default function Leaderboard() {
                       }}
                     >
                       <div className="flex justify-center mb-2" style={{ color: colors[i] }}>{icon}</div>
-                      <Link to={`/profile/${r.userId}`} className="block">
-                        <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-sm font-bold text-white" style={{ background: colors[i] }}>
-                          {r.displayName.slice(0, 2)}
+                      {r.userId === 'seed' ? (
+                        <div className="block cursor-default">
+                          <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-sm font-bold text-white" style={{ background: colors[i] }}>
+                            {r.displayName.slice(0, 2)}
+                          </div>
+                          <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
                         </div>
-                        <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
-                      </Link>
+                      ) : (
+                        <Link to={`/profile/${r.userId}`} className="block">
+                          <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-sm font-bold text-white" style={{ background: colors[i] }}>
+                            {r.displayName.slice(0, 2)}
+                          </div>
+                          <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
+                        </Link>
+                      )}
                       <div className="text-lg font-bold mt-1" style={{ color: colors[i] }}>{r.certScore}</div>
                       {r.certLevel && (
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${levelColors[r.certLevel]}20`, color: levelColors[r.certLevel] }}>
@@ -117,26 +126,48 @@ export default function Leaderboard() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
                 >
-                  <Link
-                    to={`/profile/${r.userId}`}
-                    className="flex items-center gap-4 rounded-lg px-4 py-3 border hover:shadow-sm transition-shadow"
-                    style={{ background: '#faf9f5', borderColor: '#e8e6dc' }}
-                  >
-                    <span className="text-sm font-bold w-6 text-center" style={{ color: '#87867f' }}>{r.rank}</span>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: r.certLevel ? levelColors[r.certLevel] || '#a89888' : '#a89888' }}>
-                      {r.displayName.slice(0, 2)}
+                  {r.userId === 'seed' ? (
+                    <div
+                      className="flex items-center gap-4 rounded-lg px-4 py-3 border cursor-default"
+                      style={{ background: '#faf9f5', borderColor: '#e8e6dc' }}
+                    >
+                      <span className="text-sm font-bold w-6 text-center" style={{ color: '#87867f' }}>{r.rank}</span>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: r.certLevel ? levelColors[r.certLevel] || '#a89888' : '#a89888' }}>
+                        {r.displayName.slice(0, 2)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
+                        {r.title && <div className="text-xs" style={{ color: '#87867f' }}>{r.title}</div>}
+                      </div>
+                      {r.certLevel && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${levelColors[r.certLevel]}20`, color: levelColors[r.certLevel] }}>
+                          {r.certLevel}
+                        </span>
+                      )}
+                      <span className="font-bold text-lg" style={{ color: '#c96442' }}>{r.certScore}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
-                      {r.title && <div className="text-xs" style={{ color: '#87867f' }}>{r.title}</div>}
-                    </div>
-                    {r.certLevel && (
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${levelColors[r.certLevel]}20`, color: levelColors[r.certLevel] }}>
-                        {r.certLevel}
-                      </span>
-                    )}
-                    <span className="font-bold text-lg" style={{ color: '#c96442' }}>{r.certScore}</span>
-                  </Link>
+                  ) : (
+                    <Link
+                      to={`/profile/${r.userId}`}
+                      className="flex items-center gap-4 rounded-lg px-4 py-3 border hover:shadow-sm transition-shadow"
+                      style={{ background: '#faf9f5', borderColor: '#e8e6dc' }}
+                    >
+                      <span className="text-sm font-bold w-6 text-center" style={{ color: '#87867f' }}>{r.rank}</span>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: r.certLevel ? levelColors[r.certLevel] || '#a89888' : '#a89888' }}>
+                        {r.displayName.slice(0, 2)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
+                        {r.title && <div className="text-xs" style={{ color: '#87867f' }}>{r.title}</div>}
+                      </div>
+                      {r.certLevel && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${levelColors[r.certLevel]}20`, color: levelColors[r.certLevel] }}>
+                          {r.certLevel}
+                        </span>
+                      )}
+                      <span className="font-bold text-lg" style={{ color: '#c96442' }}>{r.certScore}</span>
+                    </Link>
+                  )}
                 </motion.div>
               ))}
             </div>

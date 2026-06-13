@@ -22,7 +22,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppInner() {
   const { initialize, initialized } = useAuthStore()
-  const location = useLocation()
 
   useEffect(() => {
     initialize()

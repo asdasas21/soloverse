@@ -144,7 +144,7 @@ export default function Profile() {
     );
   }
 
-  const displayName = apiData?.profile?.display_name || apiData?.profile?.username || '用户';
+  const displayName = apiData?.name || '用户';
   const initials = displayName.slice(0, 2);
 
   // 空状态：用户还没有完成任何试炼
@@ -359,8 +359,8 @@ export default function Profile() {
                 <i className="bi bi-signpost-2" style={{ fontSize: '18px', color: 'var(--color-brand)' }} /> 成长路径
               </h2>
               <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-                你的优势维度是 <strong style={{ color: 'var(--color-brand)' }}>{DIM_LABELS[strongest[0] as keyof typeof DIM_LABELS] || String(strongest[0])}</strong>（{String(strongest[1])}分），
-                建议下一步提升 <strong style={{ color: 'var(--color-brand)' }}>{DIM_LABELS[weakest[0] as keyof typeof DIM_LABELS] || String(weakest[0])}</strong>（{String(weakest[1])}分）
+                你的优势集中在 <strong style={{ color: 'var(--color-brand)' }}>{DIM_LABELS[strongest[0] as keyof typeof DIM_LABELS] || String(strongest[0])}</strong>（{String(strongest[1])}分），
+                建议下一步突破 <strong style={{ color: 'var(--color-brand)' }}>{DIM_LABELS[weakest[0] as keyof typeof DIM_LABELS] || String(weakest[0])}</strong>（{String(weakest[1])}分）
               </p>
               <Link
                 to={`/trials/${rec.trial}`}

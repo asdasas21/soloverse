@@ -92,7 +92,7 @@ router.get('/profile/:userId', async (req: Request, res: Response): Promise<void
   }
 
   // 获取最新评估
-  const { data: evaluation, error: evalError } = await supabase
+  const { data: evaluation } = await supabase
     .from('evaluations')
     .select('portrait, cert_score, cert_level, summary, created_at, trial_id')
     .eq('user_id', userId)

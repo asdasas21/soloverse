@@ -22,7 +22,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       issued_at,
       verification_code,
       is_revoked,
-      profiles!inner(display_name)
+      profiles!inner(display_name, username)
     `)
     .eq('is_revoked', false)
 
@@ -59,7 +59,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   }
 
   // With limit(1) + maybeSingle, profiles is an array with at most one element
-  const profileRows = data.profiles as Array<{ display_name: string }>
+  const profileRows = data.profiles as Array<{ display_name: string; username: string }>
   const profile = profileRows && profileRows.length > 0 ? profileRows[0] : null
 
   res.json({
@@ -67,7 +67,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     data: {
       id: data.cert_number,
       userId: data.user_id,
-      userName: profile?.display_name ?? '',
+      userName: profile?.display_name || profile?.username || 'TalentX 用户',
       level: data.level,
       levelName: levelNameMap[data.level] ?? data.level,
       certScore: data.cert_score,

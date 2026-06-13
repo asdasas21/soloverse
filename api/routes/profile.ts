@@ -104,11 +104,13 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
     const evalScoreMap = new Map((evals ?? []).map((e) => [e.session_id, e.cert_score]))
 
-    trialHistory = sessions.map((s) => ({
-      name: trialTitleMap.get(s.trial_id) ?? s.trial_id,
-      date: ((s.submitted_at ?? s.started_at) as string).slice(0, 10),
-      score: evalScoreMap.get(s.id) ?? 0,
-    }))
+    trialHistory = sessions
+      .filter((s) => evalScoreMap.has(s.id))
+      .map((s) => ({
+        name: trialTitleMap.get(s.trial_id) ?? s.trial_id,
+        date: ((s.submitted_at ?? s.started_at) as string).slice(0, 10),
+        score: evalScoreMap.get(s.id) ?? 0,
+      }))
   }
 
   res.json({

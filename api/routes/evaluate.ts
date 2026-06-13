@@ -11,17 +11,6 @@ import {
 
 const router = Router()
 
-type Dimension = keyof Portrait
-
-const DIMENSIONS: Dimension[] = [
-  'curiosity',
-  'reliability',
-  'factChecking',
-  'diverseThinking',
-  'uncertaintyTolerance',
-  'lowEgoHighDrive',
-]
-
 /** POST /api/evaluate */
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const { trialId, sessionId } = req.body as {
@@ -140,6 +129,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       sessionId,
       dimensionScores,
       portrait,
+      certScore,
       certification: certLevel
         ? { level: certLevel, certScore, issuedAt: new Date().toISOString().slice(0, 10) }
         : null,

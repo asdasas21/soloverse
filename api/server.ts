@@ -1,6 +1,8 @@
 /**
  * local server entry file, for local development
  */
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
 import app from './app.js';
 
 /**

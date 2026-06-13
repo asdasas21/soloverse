@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
 
 # Editor directories and files
 .vscode/*
@@ -23,3 +25,8 @@ dist-ssr
 *.sln
 *.sw?
 .vite
+.vercel
+
+# 截图和 worktree
+screenshots/
+worktree-*/

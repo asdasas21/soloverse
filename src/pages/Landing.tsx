@@ -1,8 +1,41 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Swords, Code, Award } from 'lucide-react';
+import { Swords, Code, Award, LogOut } from 'lucide-react';
 import CountUp from '@/components/CountUp';
+import { DemoChat } from '@/components/DemoChat';
+import { useAuthStore } from '@/store/authStore';
+
+// Nav auth button
+function NavAuth() {
+  const { user, profile, signOut } = useAuthStore();
+  const navigate = useNavigate();
+  if (user) {
+    return (
+      <div className="flex items-center gap-3">
+        <span
+          className="cursor-pointer hover:opacity-70 transition-opacity"
+          style={{ color: '#c96442' }}
+          onClick={() => navigate(`/profile/${user.id}`)}
+        >
+          {profile?.display_name || profile?.username || '我的'}
+        </span>
+        <button onClick={() => signOut()} className="hover:opacity-70 transition-opacity">
+          <LogOut size={14} />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={() => navigate('/auth')}
+      className="px-4 py-1.5 rounded-lg text-white text-xs font-medium"
+      style={{ background: '#c96442' }}
+    >
+      登录 / 注册
+    </button>
+  );
+}
 
 const steps = [
   { icon: Swords, title: '选择试炼', desc: '从多个真实场景中选择属于你的挑战' },
@@ -29,6 +62,8 @@ const SplitText = ({ text, className }: { text: string; className?: string }) =>
 
 const MagnetButton = ({ children, to, className, style }: { children: React.ReactNode; to: string; className?: string; style?: React.CSSProperties }) => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const target = user ? to : '/auth';
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const handleMouse = (e: React.MouseEvent) => {
@@ -41,7 +76,7 @@ const MagnetButton = ({ children, to, className, style }: { children: React.Reac
       transition={{ type: 'spring', stiffness: 150, damping: 15 }}
       onMouseMove={handleMouse} onMouseLeave={() => setPos({ x: 0, y: 0 })}
       className={className} style={style}
-      onClick={() => navigate(to)}>
+      onClick={() => navigate(target)}>
       {children}
     </motion.div>
   );
@@ -60,6 +95,7 @@ const css = `
 }`;
 
 export default function Landing() {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40);
@@ -82,10 +118,12 @@ export default function Landing() {
         boxShadow: scrolled ? '0 1px 0 rgba(0,0,0,0.05)' : 'none',
       }}>
         <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-4">
-          <span className="text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: '#141413' }}>TalentX</span>
-          <div className="flex gap-6 text-sm" style={{ color: '#5e5d59' }}>
+          <span className="text-xl font-bold cursor-pointer" onClick={() => navigate('/')} style={{ fontFamily: "'Playfair Display', serif", color: '#141413' }}>TalentX</span>
+          <div className="flex items-center gap-4 text-sm" style={{ color: '#5e5d59' }}>
             <Link to="/trials" className="hover:opacity-70 transition-opacity">试炼大厅</Link>
+            <Link to="/leaderboard" className="hover:opacity-70 transition-opacity">排行榜</Link>
             <a href="#about" className="hover:opacity-70 transition-opacity">关于我们</a>
+            <NavAuth />
           </div>
         </div>
       </nav>
@@ -146,6 +184,20 @@ export default function Landing() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Demo Chat */}
+      <section className="py-24 px-6">
+        <div className="max-w-md mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <DemoChat />
+          </motion.div>
         </div>
       </section>
 

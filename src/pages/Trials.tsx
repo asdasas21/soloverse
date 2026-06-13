@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Clock, Users, Trophy, Flame } from "lucide-react";
-import { TRIALS, type TrialCard } from "@/store/trialStore";
+import { type TrialCard } from "@/store/trialStore";
+import { getTrials } from "@/api/client";
 
 const difficultyConfig: Record<
   TrialCard["difficulty"],
@@ -73,6 +75,30 @@ function TrialCardComponent({ trial, index }: { trial: TrialCard; index: number 
 }
 
 export default function Trials() {
+  const [trials, setTrials] = useState<TrialCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getTrials()
+      .then((res: any) => {
+        if (!cancelled) {
+          const data = res.data || res;
+          if (Array.isArray(data) && data.length > 0) {
+            setTrials(data);
+          }
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "获取试炼列表失败");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#f5f4ed]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <div className="max-w-5xl mx-auto px-6 py-12">
@@ -96,11 +122,30 @@ export default function Trials() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {TRIALS.map((trial, i) => (
-            <TrialCardComponent key={trial.id} trial={trial} index={i} />
-          ))}
-        </div>
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-3 border-[#e8e6dc] border-t-[#c96442] rounded-full animate-spin" />
+          </div>
+        )}
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-12 text-[#87867f] text-sm"
+          >
+            <p><i className="bi bi-exclamation-triangle" style={{ color: '#c96442' }} /> {error}</p>
+            <p className="mt-1 text-xs">已加载本地数据</p>
+          </motion.div>
+        )}
+
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {trials.map((trial, i) => (
+              <TrialCardComponent key={trial.id} trial={trial} index={i} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

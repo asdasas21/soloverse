@@ -207,8 +207,7 @@ router.get('/discover', async (req: Request, res: Response): Promise<void> => {
     .from('skills')
     .select(`
       id, title, description, kind, protocol, status,
-      invoke_count, created_at, user_id,
-      profiles!inner(display_name, avatar_url, title)
+      invoke_count, created_at, user_id
     `)
     .in('status', ['published', 'verified'])
 
@@ -232,21 +231,33 @@ router.get('/discover', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
-  const skills = (data ?? []).map((s: any) => ({
-    id: s.id,
-    title: s.title,
-    description: s.description,
-    kind: s.kind,
-    protocol: s.protocol,
-    invokeCount: s.invoke_count,
-    createdAt: (s.created_at as string)?.slice(0, 10),
-    author: {
-      userId: s.user_id,
-      displayName: s.profiles?.display_name || '匿名用户',
-      avatarUrl: s.profiles?.avatar_url,
-      title: s.profiles?.title || '',
-    },
-  }))
+  // 批量查询作者信息（避免 join 外键依赖）
+  const userIds = [...new Set((data ?? []).map((s: any) => s.user_id).filter(Boolean))]
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_url, title')
+    .in('id', userIds)
+
+  const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]))
+
+  const skills = (data ?? []).map((s: any) => {
+    const profile = profileMap.get(s.user_id) as any
+    return {
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      kind: s.kind,
+      protocol: s.protocol,
+      invokeCount: s.invoke_count,
+      createdAt: (s.created_at as string)?.slice(0, 10),
+      author: {
+        userId: s.user_id,
+        displayName: profile?.display_name || '匿名用户',
+        avatarUrl: profile?.avatar_url,
+        title: profile?.title || '',
+      },
+    }
+  })
 
   res.json({ success: true, data: skills })
 })

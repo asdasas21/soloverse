@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Trophy, Award, ChevronRight, Eye, TrendingUp, CheckCircle2, AlertCircle, Zap } from "lucide-react";
+import { ArrowLeft, Trophy, Award, ChevronRight, Eye, TrendingUp, CheckCircle2, Zap } from "lucide-react";
 import { getTrial, type TrialData } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
-import { getTrialScenarios, type ScenarioEvent, type WorkspaceConfig } from "@/data/scenarioEngine";
+import { getTrialScenarios, type ScenarioEvent } from "@/data/scenarioEngine";
 import DecisionPanel from "@/components/workspaces/DecisionPanel";
 import CodeReviewWorkspace from "@/components/workspaces/CodeReviewWorkspace";
 import DesignCanvas from "@/components/workspaces/DesignCanvas";

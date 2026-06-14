@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { ChevronRight, Check, X } from 'lucide-react'
 import type { DesignConfig, DesignComponent } from '@/data/scenarioEngine'
 

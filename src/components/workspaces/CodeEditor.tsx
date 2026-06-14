@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { motion } from 'motion/react'
 import { ChevronRight, Code2, Check } from 'lucide-react'
 import type { CodeEditConfig } from '@/data/scenarioEngine'
 

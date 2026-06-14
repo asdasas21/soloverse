@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Award, BookOpen, Shield, ChevronRight, ArrowLeft, Share2 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
@@ -44,22 +44,6 @@ const DIM_TAGS: Record<Dimension, string[]> = {
   lowEgoHighDrive: ['虚心接受反馈', '持续精进', '目标导向'],
 };
 
-
-function useCountUp(target: number, duration = 1200) {
-  const [value, setValue] = useState(0);
-  const start = useRef<number | null>(null);
-  useEffect(() => {
-    start.current = null;
-    const step = (ts: number) => {
-      if (!start.current) start.current = ts;
-      const progress = Math.min((ts - start.current) / duration, 1);
-      setValue(Math.round(progress * target));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [target, duration]);
-  return value;
-}
 
 function ScoreCard({ dim, score, index }: { dim: Dimension; score: number; index: number }) {
   return (
@@ -376,7 +360,6 @@ export default function Profile() {
           </h2>
           <div className="space-y-2">
             {trialHistory.map((t: any, idx: number) => {
-              const prevSame = idx > 0 && trialHistory[idx - 1].name === t.name;
               const attemptCount = trialHistory.filter((h: any, i: number) => i <= idx && h.name === t.name).length;
               return (
                 <div

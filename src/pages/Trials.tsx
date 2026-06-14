@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Clock, Users, Trophy, Flame, Layers } from "lucide-react";
+import { Clock, Users, Flame, Layers } from "lucide-react";
 import { type TrialCard } from "@/store/trialStore";
 import { getTrials } from "@/api/client";
 import { getTrialPhases, PHASE_TYPE_META } from "@/data/trialPhases";
@@ -49,7 +49,7 @@ function TrialCardComponent({ trial, index }: { trial: TrialCard; index: number 
       <div className="flex items-center gap-1.5 mb-4 flex-wrap">
         <Layers size={12} style={{ color: "#c96442" }} />
         <span className="text-[11px] font-medium" style={{ color: "#87867f" }}>{phases.length} 阶段评估：</span>
-        {phases.map((phase, i) => {
+        {phases.map((phase, _i) => {
           const meta = PHASE_TYPE_META[phase.type];
           return (
             <span

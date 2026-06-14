@@ -236,7 +236,7 @@ router.get('/candidates', requireEnterpriseRole, async (_req: Request, res: Resp
 router.get('/trials', async (_req: Request, res: Response): Promise<void> => {
   const { data: trials, error } = await supabase
     .from('trials')
-    .select('id, title, description, difficulty, duration_hours, category')
+    .select('id, title, description, difficulty, status, duration_hours, tags, participant_count')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -253,21 +253,32 @@ router.get('/trials', async (_req: Request, res: Response): Promise<void> => {
  * 企业发布定制试炼
  */
 router.post('/trials', requireEnterpriseRole, async (req: Request, res: Response): Promise<void> => {
-  const { title, description, difficulty, durationHours, category } = req.body
+  const { title, description, difficulty, durationHours } = req.body
 
   if (!title || !description) {
     err(res, '试炼标题和描述不能为空')
     return
   }
 
+  // 映射中文难度到枚举值
+  const difficultyMap: Record<string, string> = {
+    '入门': 'beginner',
+    '初级': 'beginner',
+    '进阶': 'intermediate',
+    '中级': 'intermediate',
+    '高级': 'advanced',
+  }
+  const mappedDifficulty = difficultyMap[difficulty] || difficulty || 'intermediate'
+
   const { data, error } = await supabase
     .from('trials')
     .insert({
+      id: `custom-${Date.now()}`,
       title,
       description,
-      difficulty: difficulty || '中级',
+      difficulty: mappedDifficulty,
       duration_hours: durationHours || 4,
-      category: category || '企业定制',
+      tags: ['企业定制'],
     })
     .select('id')
     .single()

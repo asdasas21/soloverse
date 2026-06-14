@@ -563,6 +563,64 @@ function CreateTrialForm({
   )
 }
 
+// 预制试炼数据（API 返回空或失败时兜底）
+const SEED_TRIALS = [
+  {
+    id: 'ent-tech-interview',
+    title: '技术深度面试',
+    description: '模拟资深工程师技术面试，覆盖算法、系统设计、工程实践全链路。AI 面试官将根据候选人回答动态调整难度，深入追问技术决策的底层逻辑。',
+    difficulty: 'advanced',
+    duration_hours: 6,
+    tags: ['技术面试', '系统设计'],
+    participant_count: 42,
+  },
+  {
+    id: 'ent-product-thinking',
+    title: '产品思维评估',
+    description: '评估候选人的产品 sense 和用户同理心。通过真实业务场景，考察需求分析、优先级判断、数据驱动决策能力。',
+    difficulty: 'intermediate',
+    duration_hours: 4,
+    tags: ['产品思维', '数据驱动'],
+    participant_count: 35,
+  },
+  {
+    id: 'ent-data-analysis',
+    title: '数据分析实战',
+    description: '通过真实业务数据集，评估候选人的分析框架、洞察提炼和可视化表达能力。从数据清洗到决策建议全流程考察。',
+    difficulty: 'intermediate',
+    duration_hours: 4,
+    tags: ['数据分析', '商业洞察'],
+    participant_count: 28,
+  },
+  {
+    id: 'ent-leadership',
+    title: '团队管理与领导力',
+    description: '模拟技术管理者的日常挑战：跨部门协作、绩效沟通、技术决策、团队建设。评估领导力潜质和管理素养。',
+    difficulty: 'advanced',
+    duration_hours: 6,
+    tags: ['领导力', '团队管理'],
+    participant_count: 19,
+  },
+  {
+    id: 'ent-communication',
+    title: '沟通协作能力',
+    description: '通过高压沟通场景模拟，评估候选人的表达逻辑、倾听能力、冲突处理和向上沟通技巧。',
+    difficulty: 'beginner',
+    duration_hours: 3,
+    tags: ['沟通', '软技能'],
+    participant_count: 56,
+  },
+  {
+    id: 'ent-system-design-senior',
+    title: '架构师系统设计',
+    description: '面向资深/架构师岗位的深度系统设计评估。涉及分布式架构、高可用设计、技术选型的深度论证。',
+    difficulty: 'advanced',
+    duration_hours: 8,
+    tags: ['系统设计', '架构'],
+    participant_count: 23,
+  },
+]
+
 // 定制试炼卡片
 function TrialCard({ trial, index }: { trial: any; index: number }) {
   return (
@@ -600,17 +658,21 @@ function TrialCard({ trial, index }: { trial: any; index: number }) {
         </p>
       )}
 
-      {/* 参与人数 + 平均分 */}
+      {/* 参与人数 + 时长 */}
       <div className="flex items-center gap-4 text-xs" style={{ color: '#87867f' }}>
         <span className="flex items-center gap-1.5">
-          <Users size={14} /> {trial.participants ?? 0} 人参与
+          <Users size={14} /> {trial.participant_count ?? trial.participants ?? 0} 人参与
         </span>
-        <span className="flex items-center gap-1.5">
-          <TrendingUp size={14} /> 平均分 {trial.avgScore ?? '—'}
-        </span>
-        {trial.duration && (
+        {(trial.duration_hours ?? trial.duration) && (
           <span className="flex items-center gap-1.5">
-            <Briefcase size={14} /> {trial.duration}分钟
+            <Briefcase size={14} /> {trial.duration_hours ?? trial.duration} 小时
+          </span>
+        )}
+        {trial.tags && Array.isArray(trial.tags) && trial.tags.length > 0 && (
+          <span className="flex items-center gap-1.5 truncate">
+            {trial.tags.slice(0, 2).map((tag: string, idx: number) => (
+              <span key={idx} className="px-1.5 py-0.5 rounded" style={{ background: '#f5f4ed' }}>{tag}</span>
+            ))}
           </span>
         )}
       </div>
@@ -661,11 +723,17 @@ export default function EnterpriseDashboard() {
       }
       const json = await res.json()
       const payload = json.data ?? json
-      setCustomTrials(payload.trials ?? payload ?? [])
+      const trials = payload.trials ?? payload ?? []
+      if (trials.length > 0) {
+        setCustomTrials(trials)
+      } else {
+        // API 返回空时使用预制数据兜底
+        setCustomTrials(SEED_TRIALS)
+      }
     } catch (err: any) {
-      // 试炼接口失败不阻塞整体加载，静默处理
+      // 试炼接口失败不阻塞整体加载，使用预制数据兜底
       console.warn('[enterprise] 获取试炼列表失败:', err.message)
-      setCustomTrials([])
+      setCustomTrials(SEED_TRIALS)
     }
   }, [])
 
@@ -701,7 +769,12 @@ export default function EnterpriseDashboard() {
     const res = await fetch(`${API_BASE}/enterprise/trials`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(formData),
+      body: JSON.stringify({
+        title: formData.title,
+        description: formData.description,
+        difficulty: formData.difficulty,
+        durationHours: Math.max(1, Math.round(Number(formData.duration) / 60)) || 1,
+      }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }))

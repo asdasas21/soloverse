@@ -21,6 +21,12 @@ const levelColors: Record<string, string> = {
   C1: '#7b9b6e',
 };
 
+const levelLabels: Record<string, string> = {
+  C3: '专家级',
+  C2: '专业级',
+  C1: '基础级',
+};
+
 export default function Leaderboard() {
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +99,7 @@ export default function Leaderboard() {
                       {r.userId === 'seed' ? (
                         <div className="block cursor-default">
                           <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-sm font-bold text-white" style={{ background: colors[i] }}>
-                            {r.displayName.slice(0, 2)}
+                            {r.displayName.slice(0, 1)}
                           </div>
                           <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
                           {r.title && <div className="text-xs truncate" style={{ color: '#87867f' }}>{r.title}</div>}
@@ -101,7 +107,7 @@ export default function Leaderboard() {
                       ) : (
                         <Link to={`/profile/${r.userId}`} className="block">
                           <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-sm font-bold text-white" style={{ background: colors[i] }}>
-                            {r.displayName.slice(0, 2)}
+                            {r.displayName.slice(0, 1)}
                           </div>
                           <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
                           {r.title && <div className="text-xs truncate" style={{ color: '#87867f' }}>{r.title}</div>}
@@ -110,7 +116,7 @@ export default function Leaderboard() {
                       <div className="text-lg font-bold mt-1" style={{ color: colors[i] }}>{r.certScore}</div>
                       {r.certLevel && (
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${levelColors[r.certLevel]}20`, color: levelColors[r.certLevel] }}>
-                          {r.certLevel}
+                          {r.certLevel} {levelLabels[r.certLevel]}
                         </span>
                       )}
                     </motion.div>
@@ -135,7 +141,7 @@ export default function Leaderboard() {
                     >
                       <span className="text-sm font-bold w-6 text-center" style={{ color: '#87867f' }}>{r.rank}</span>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: r.certLevel ? levelColors[r.certLevel] || '#a89888' : '#a89888' }}>
-                        {r.displayName.slice(0, 2)}
+                        {r.displayName.slice(0, 1)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
@@ -143,7 +149,7 @@ export default function Leaderboard() {
                       </div>
                       {r.certLevel && (
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${levelColors[r.certLevel]}20`, color: levelColors[r.certLevel] }}>
-                          {r.certLevel}
+                          {r.certLevel} {levelLabels[r.certLevel]}
                         </span>
                       )}
                       <span className="font-bold text-lg" style={{ color: '#c96442' }}>{r.certScore}</span>
@@ -156,7 +162,7 @@ export default function Leaderboard() {
                     >
                       <span className="text-sm font-bold w-6 text-center" style={{ color: '#87867f' }}>{r.rank}</span>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: r.certLevel ? levelColors[r.certLevel] || '#a89888' : '#a89888' }}>
-                        {r.displayName.slice(0, 2)}
+                        {r.displayName.slice(0, 1)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
@@ -164,7 +170,7 @@ export default function Leaderboard() {
                       </div>
                       {r.certLevel && (
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${levelColors[r.certLevel]}20`, color: levelColors[r.certLevel] }}>
-                          {r.certLevel}
+                          {r.certLevel} {levelLabels[r.certLevel]}
                         </span>
                       )}
                       <span className="font-bold text-lg" style={{ color: '#c96442' }}>{r.certScore}</span>

@@ -102,6 +102,9 @@ export default function TaskMarket() {
               <Plus size={16} /> 发布任务
             </button>
           )}
+          {!isEnterprise && (
+            <span className="text-xs text-[#87867f]">任务由企业端发布，你可浏览并申请参与</span>
+          )}
         </div>
 
         {/* Tabs */}
@@ -176,12 +179,14 @@ export default function TaskMarket() {
                   </span>
                   {task.reward_total > 0 && (
                     <span className="flex items-center gap-1">
-                      <Award size={12} /> ¥{((task.reward_total / 100) * (task.deposit_ratio / 100)).toFixed(0)} 定金 / ¥{(task.reward_total / 100).toFixed(0)} 全额
+                      <Award size={12} /> ¥{((task.reward_total / 100) * (task.deposit_ratio / 100)).toFixed(0)} 预付定金 / ¥{(task.reward_total / 100).toFixed(0)} 总报酬
                     </span>
                   )}
-                  {task.creator?.display_name && (
+                  {task.creator?.display_name ? (
                     <span>发布者：{task.creator.display_name}</span>
-                  )}
+                  ) : task.creator_id ? (
+                    <span>企业发布者</span>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center justify-between">

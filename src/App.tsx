@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate, Link } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ToastProvider } from '@/components/Toast'
 import Landing from '@/pages/Landing'
@@ -27,7 +27,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-/** 路由守卫：仅企业端角色可访问 */
+/** 路由守卫：仅企业端角色可访问，非企业端显示提示 */
 function EnterpriseRoute({ children }: { children: React.ReactNode }) {
   const { user, isEnterprise } = useAuthStore()
   const location = useLocation()
@@ -35,7 +35,16 @@ function EnterpriseRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" state={{ from: location.pathname }} replace />
   }
   if (!isEnterprise) {
-    return <Navigate to="/trials" replace />
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: '#f5f4ed' }}>
+        <i className="bi bi-shield-lock" style={{ fontSize: '48px', color: '#c96442' }} />
+        <h2 className="text-xl font-bold" style={{ color: '#141413' }}>此页面仅限企业端用户</h2>
+        <p className="text-sm" style={{ color: '#87867f' }}>你当前是个人端用户，企业端功能需要企业账号才能访问</p>
+        <Link to="/trials" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: '#c96442' }}>
+          前往试炼大厅
+        </Link>
+      </div>
+    )
   }
   return <>{children}</>
 }

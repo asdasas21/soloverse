@@ -23,7 +23,7 @@ const DIM_LABELS: Record<Dimension, string> = {
   factChecking: '事实洁癖',
   diverseThinking: '多元化思维',
   uncertaintyTolerance: '忍受不确定性',
-  lowEgoHighDrive: '低ego高自驱',
+  lowEgoHighDrive: '谦逊自驱',
 };
 
 const DIM_DESCRIPTIONS: Record<Dimension, string> = {

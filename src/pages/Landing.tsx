@@ -65,7 +65,7 @@ const steps = [
     icon: Swords,
     title: '进入工作区',
     subtitle: 'Enter the Arena',
-    desc: '选择黑客松、代码审查、系统设计等真实工程场景。你将在交互式工作区中操作——做决策、写代码、画架构、审 diff',
+    desc: '选择黑客松、代码审查、系统设计等真实工程场景。你将在交互式工作区中操作——做决策、写代码、画架构、审查代码变更',
     highlight: '7 大场景 · 真实工程',
   },
   {
@@ -79,7 +79,7 @@ const steps = [
     icon: Award,
     title: '获得能力认证',
     subtitle: 'Get Certified',
-    desc: '基于 EMA 算法综合各场景行为数据，生成六维能力 DNA。C1-C3 级认证可作为简历替代品直接展示给雇主',
+    desc: '综合各场景行为数据，用渐进式加权算法生成六维能力 DNA。C1（基础级）-C3（专家级）认证可作为简历替代品直接展示给雇主',
     highlight: '在线可验证',
   },
 ];

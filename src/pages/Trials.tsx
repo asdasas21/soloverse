@@ -132,7 +132,7 @@ export default function Trials() {
             </h1>
           </div>
           <p className="text-[#5e5d59] text-base max-w-xl leading-relaxed">
-            选择一项真实工程场景。你将在交互式工作区中操作——做决策、写代码、审 diff、画架构。AI 在后台静默采集行为数据，不是聊天口试。
+            选择一项真实工程场景。你将在交互式工作区中操作——做决策、写代码、审查代码变更（diff）、画架构。AI 在后台静默采集行为数据，不是聊天口试。
           </p>
         </motion.div>
 

@@ -14,6 +14,7 @@ const Leaderboard = lazy(() => import('@/pages/Leaderboard'))
 const EnterpriseDashboard = lazy(() => import('@/pages/EnterpriseDashboard'))
 const SkillStudio = lazy(() => import('@/pages/SkillStudio'))
 const Pricing = lazy(() => import('@/pages/Pricing'))
+const TaskMarket = lazy(() => import('@/pages/TaskMarket'))
 import { useAuthStore } from '@/store/authStore'
 
 /** 路由守卫：未登录用户重定向到 /auth */
@@ -84,6 +85,7 @@ function AppInner() {
       <Route path="/enterprise" element={<EnterpriseRoute><EnterpriseDashboard /></EnterpriseRoute>} />
       <Route path="/skills" element={<ProtectedRoute><SkillStudio /></ProtectedRoute>} />
       <Route path="/pricing" element={<ProtectedRoute><Pricing /></ProtectedRoute>} />
+      <Route path="/tasks" element={<ProtectedRoute><TaskMarket /></ProtectedRoute>} />
       <Route path="*" element={<div className="min-h-screen flex items-center justify-center bg-[#f5f4ed] text-[#5e5d59]">404 - 页面不存在</div>} />
     </Routes>
     </Suspense>

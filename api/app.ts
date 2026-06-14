@@ -14,6 +14,7 @@ import dotenv from 'dotenv'
 import trialRoutes from './routes/trials.js'
 import chatRoutes from './routes/chat.js'
 import evaluateRoutes from './routes/evaluate.js'
+import trialActionRoutes from './routes/trial-actions.js'
 import profileRoutes from './routes/profile.js'
 import seasonRoutes from './routes/season.js'
 import certRoutes from './routes/cert.js'
@@ -21,6 +22,7 @@ import leaderboardRoutes from './routes/leaderboard.js'
 import enterpriseRoutes from './routes/enterprise.js'
 import skillsRouter, { codingEventsRouter } from './routes/skills.js'
 import commerceRouter from './routes/commerce.js'
+import taskRoutes from './routes/tasks.js'
 import mcpRouter from './mcp-server.js'
 import { logRequest, logError } from './lib/logger.js'
 
@@ -88,12 +90,22 @@ const evaluateLimiter = rateLimit({
   message: { success: false, error: '提交次数过多，请稍后再试' },
 })
 
+// --- Rate limiting: Trial actions (moderate — triggers GLM calls) ---
+const trialActionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 actions per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: '操作频率过高，请稍后再试' },
+})
+
 /**
  * API Routes
  */
 app.use('/api/trials', trialRoutes)
 app.use('/api/chat', chatLimiter, chatRoutes)
 app.use('/api/evaluate', evaluateLimiter, evaluateRoutes)
+app.use('/api/trial-actions', trialActionLimiter, trialActionRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/season', seasonRoutes)
 app.use('/api/cert', certRoutes)
@@ -102,6 +114,7 @@ app.use('/api/enterprise', enterpriseRoutes)
 app.use('/api/skills', skillsRouter)
 app.use('/api/coding-events', codingEventsRouter)
 app.use('/api/commerce', commerceRouter)
+app.use('/api/tasks', taskRoutes)
 app.use('/api/mcp', mcpRouter)
 
 /**

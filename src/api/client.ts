@@ -155,3 +155,106 @@ export const generateReport = (reportType: string, evaluationId?: string) => fet
 export const getReports = () => fetchAPI<ReportPurchase[]>('/commerce/reports');
 export const getReport = (type: string) => fetchAPI<{ id: string; reportType: string; content: Record<string, unknown> }>(`/commerce/reports/${type}`);
 export const getUsage = () => fetchAPI<UsageStats>('/commerce/usage');
+
+// ── 任务协作 ──
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  requirements: string | null;
+  status: 'open' | 'in_review' | 'in_progress' | 'completed' | 'cancelled';
+  category: string;
+  max_builders: number;
+  reward_total: number;
+  deposit_ratio: number;
+  required_cert_level: string | null;
+  apply_deadline: string | null;
+  submit_deadline: string | null;
+  creator_id: string;
+  created_at: string;
+  creator?: { display_name: string; avatar_url: string | null; title: string };
+}
+
+export interface TaskApplication {
+  id: string;
+  task_id: string;
+  builder_id: string;
+  message: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  builder?: { display_name: string; avatar_url: string | null; title: string };
+}
+
+export interface TaskSubmission {
+  id: string;
+  task_id: string;
+  builder_id: string;
+  content: string;
+  status: 'submitted' | 'approved' | 'rejected' | 'revision_requested';
+  feedback: string | null;
+  reward_amount: number | null;
+  created_at: string;
+  builder?: { display_name: string; avatar_url: string | null; title: string };
+}
+
+export interface TaskReview {
+  id: string;
+  task_id: string;
+  builder_id: string;
+  professionalism: number;
+  communication: number;
+  quality: number;
+  timeliness: number;
+  comment: string | null;
+  created_at: string;
+  reviewer?: { display_name: string; avatar_url: string | null };
+}
+
+// 任务 API
+export const getTasks = (status?: string) => 
+  fetchAPI<{ tasks: Task[] }>(`/tasks${status ? `?status=${status}` : ''}`);
+
+export const getTask = (id: string) => 
+  fetchAPI<Task>(`/tasks/${id}`);
+
+export const createTask = (data: {
+  title: string;
+  description: string;
+  requirements?: string;
+  maxBuilders?: number;
+  rewardTotal?: number;
+  depositRatio?: number;
+  category?: string;
+  requiredCertLevel?: string | null;
+}) => fetchAPI<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) });
+
+export const applyForTask = (taskId: string, message?: string) => 
+  fetchAPI<TaskApplication>(`/tasks/${taskId}/apply`, { method: 'POST', body: JSON.stringify({ message }) });
+
+export const getTaskApplications = (taskId: string) => 
+  fetchAPI<TaskApplication[]>(`/tasks/${taskId}/applications`);
+
+export const reviewApplication = (taskId: string, appId: string, status: 'approved' | 'rejected') => 
+  fetchAPI<TaskApplication>(`/tasks/${taskId}/applications/${appId}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+
+export const submitTaskWork = (taskId: string, content: string) => 
+  fetchAPI<TaskSubmission>(`/tasks/${taskId}/submit`, { method: 'POST', body: JSON.stringify({ content }) });
+
+export const getTaskSubmissions = (taskId: string) => 
+  fetchAPI<TaskSubmission[]>(`/tasks/${taskId}/submissions`);
+
+export const reviewSubmission = (taskId: string, subId: string, data: { status: string; feedback?: string; rewardAmount?: number }) => 
+  fetchAPI<TaskSubmission>(`/tasks/${taskId}/submissions/${subId}`, { method: 'PATCH', body: JSON.stringify(data) });
+
+export const submitReview = (taskId: string, builderId: string, data: { professionalism: number; communication: number; quality: number; timeliness: number; comment?: string }) => 
+  fetchAPI(`/tasks/${taskId}/reviews`, { method: 'POST', body: JSON.stringify({ builderId, ...data }) });
+
+export const getMyParticipatedTasks = () => 
+  fetchAPI(`/tasks/my/participated`);
+
+export const getMyCreatedTasks = () => 
+  fetchAPI(`/tasks/my/created`);
+
+export const getMyReviews = () => 
+  fetchAPI(`/tasks/my/reviews`);

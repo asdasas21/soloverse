@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, Trophy, Award, ChevronRight, Eye, TrendingUp, CheckCircle2, Zap } from "lucide-react";
 import { getTrial, type TrialData } from "@/api/client";
+import { fetchAPI } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
 import { getTrialScenarios, type ScenarioEvent } from "@/data/scenarioEngine";
 import DecisionPanel from "@/components/workspaces/DecisionPanel";
@@ -92,8 +93,8 @@ export default function TrialSession() {
     return () => { cancelled = true; };
   }, [id]);
 
-  // AI 静默评估 — 每次用户提交动作后更新分数
-  const evaluateAction = (scenario: ScenarioEvent, actionData: any) => {
+  // AI 静默评估 — 每次用户提交动作后，发送到后端由 GLM 评估 + EMA 平滑
+  const evaluateAction = async (scenario: ScenarioEvent, actionData: any) => {
     const action = {
       scenarioId: scenario.id,
       type: scenario.workspace,
@@ -103,48 +104,47 @@ export default function TrialSession() {
     };
     setActions((prev) => [...prev, action]);
 
-    // 基于行为数据更新分数（EMA 风格）
-    // 每个动作根据其场景配置的 focusDimensions 和行为质量调整分数
-    const newScores = { ...scores };
-    const EMA_ALPHA = 0.3;
-
-    scenario.focusDimensions.forEach((dim) => {
-      // 基础分：完成动作即有基础分
-      let qualityScore = 60;
-
-      // 根据动作类型计算质量分
-      if (actionData.weight !== undefined) {
-        // 决策类：weight 越高质量越好（1-5 分映射到 40-90）
-        qualityScore = 40 + (actionData.weight / 5) * 50;
-      } else if (actionData.findings) {
-        // 代码审查类：发现的问题越多质量越高
-        qualityScore = Math.min(90, 40 + actionData.findings.length * 10);
-      } else if (actionData.code) {
-        // 代码类：代码长度和修改程度
-        const codeLen = actionData.code.length;
-        qualityScore = Math.min(85, 50 + Math.min(35, codeLen / 50));
-      } else if (actionData.placedComponents) {
-        // 设计类：组件数量和连接数
-        const compScore = actionData.placedComponents.length * 5;
-        const connScore = (actionData.connections?.length || 0) * 3;
-        qualityScore = Math.min(90, 45 + compScore + connScore);
-      } else if (actionData.sections) {
-        // 路演类：内容丰富度
-        const totalWords = Object.values(actionData.sections).reduce(
-          (sum: number, text: any) => sum + String(text).split(/\s+/).filter(Boolean).length, 0
-        ) as number;
-        qualityScore = Math.min(88, 45 + totalWords / 3);
+    // 提交到后端评估（服务端 GLM 评估 + EMA 平滑）
+    if (sessionId) {
+      try {
+        const res = await fetchAPI<{ scores: typeof scores; turnCount: number }>('/trial-actions', {
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId,
+            trialId: id,
+            scenarioId: scenario.id,
+            workspaceType: scenario.workspace,
+            focusDimensions: scenario.focusDimensions,
+            actionData,
+          }),
+        })
+        const data = (res as any).data ?? res
+        if (data.scores) {
+          setScores(data.scores)
+        }
+      } catch (_e) {
+        // 后端评估失败时，使用本地 fallback（降级体验）
+        console.warn('Server evaluation failed, using local fallback')
+        const newScores = { ...scores }
+        let qualityScore = 60
+        if (actionData.weight !== undefined) qualityScore = 40 + (actionData.weight / 5) * 50
+        else if (actionData.findings) qualityScore = Math.min(90, 40 + actionData.findings.length * 10)
+        else if (actionData.code) qualityScore = Math.min(85, 50 + actionData.code.length / 50)
+        else if (actionData.placedComponents) qualityScore = Math.min(90, 45 + actionData.placedComponents.length * 5 + (actionData.connections?.length || 0) * 3)
+        else if (actionData.sections) qualityScore = Math.min(88, 45 + Number(Object.values(actionData.sections).reduce((s: number, v: any) => s + String(v).length, 0)) / 20)
+        qualityScore = Math.max(30, Math.min(90, qualityScore))
+        const EMA_ALPHA = 0.3
+        scenario.focusDimensions.forEach((dim) => {
+          newScores[dim] = Math.round(EMA_ALPHA * qualityScore + (1 - EMA_ALPHA) * newScores[dim])
+        })
+        setScores(newScores)
       }
-
-      newScores[dim] = Math.round(EMA_ALPHA * qualityScore + (1 - EMA_ALPHA) * newScores[dim]);
-    });
-
-    setScores(newScores);
+    }
   };
 
-  const handleActionSubmit = (actionData: any) => {
+  const handleActionSubmit = async (actionData: any) => {
     if (!currentScenario) return;
-    evaluateAction(currentScenario, actionData);
+    await evaluateAction(currentScenario, actionData);
 
     // 如果有分支，根据选择决定下一个场景
     if (actionData.optionId && currentScenario.workspaceConfig.type === 'decision') {

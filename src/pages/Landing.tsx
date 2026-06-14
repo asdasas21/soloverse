@@ -51,6 +51,7 @@ function NavLinks({ mobile = false }: { mobile?: boolean }) {
   return (
     <>
       <Link to="/trials" className="hover:opacity-70 transition-opacity">{mobile ? '试炼' : '试炼大厅'}</Link>
+      <Link to="/tasks" className="hover:opacity-70 transition-opacity">{mobile ? '任务' : '任务广场'}</Link>
       <Link to="/leaderboard" className="hover:opacity-70 transition-opacity">{mobile ? '排行' : '排行榜'}</Link>
       {!mobile && <Link to="/skills" className="hover:opacity-70 transition-opacity" title="创建和分享 AI 技能">Skill Studio</Link>}
       {!mobile && <NavAuth />}
@@ -292,15 +293,22 @@ export default function Landing() {
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }} transition={{ duration: 0.6 }}>
           <h2 className="text-3xl md:text-5xl font-bold mb-4" style={{ color: '#141413', fontFamily: "'Playfair Display', serif" }}>
-            你的能力，经得起多维度检验
+            从试炼场到真实战场
           </h2>
           <p className="mb-10 text-lg max-w-xl mx-auto" style={{ color: '#5e5d59' }}>
-            不需要投递，不需要内推。用一场工作区评估，让真实行为数据替你说话。
+            先在试炼场证明你的能力，再进入任务广场参与真实项目协作。
+            试炼认证 + 真实交付记录 = 不可伪造的能力证明。
           </p>
-          <MagnetButton to="/trials" className="inline-block px-8 py-3.5 rounded-full text-base font-medium cursor-pointer"
-            style={{ background: '#c96442', color: '#fff', boxShadow: '0 2px 12px rgba(201,100,66,0.25)' }}>
-            开始试炼
-          </MagnetButton>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <MagnetButton to="/trials" className="inline-block px-8 py-3.5 rounded-full text-base font-medium cursor-pointer"
+              style={{ background: '#c96442', color: '#fff', boxShadow: '0 2px 12px rgba(201,100,66,0.25)' }}>
+              开始试炼
+            </MagnetButton>
+            <MagnetButton to="/tasks" className="inline-block px-8 py-3.5 rounded-full text-base font-medium cursor-pointer"
+              style={{ background: 'transparent', color: '#2d2d28', border: '1px solid #e0dfd7' }}>
+              浏览任务
+            </MagnetButton>
+          </div>
         </motion.div>
       </section>
 
@@ -313,6 +321,7 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-5 text-xs">
             <Link to="/trials" className="hover:opacity-70 transition-opacity">试炼大厅</Link>
+            <Link to="/tasks" className="hover:opacity-70 transition-opacity">任务广场</Link>
             <Link to="/leaderboard" className="hover:opacity-70 transition-opacity">排行榜</Link>
             <Link to="/skills" className="hover:opacity-70 transition-opacity">Skill Studio</Link>
             <Link to="/enterprise" className="hover:opacity-70 transition-opacity">企业端</Link>

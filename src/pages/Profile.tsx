@@ -468,6 +468,29 @@ export default function Profile() {
           </div>
         )}
 
+        {/* 真实协作记录入口 */}
+        {hasEvaluation && (
+          <div className="mb-6">
+            <Link
+              to="/tasks"
+              className="block rounded-xl p-5 border transition-shadow hover:shadow-md"
+              style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold mb-1 flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-text)' }}>
+                    <i className="bi bi-people" style={{ color: 'var(--color-brand)' }} /> 真实任务协作
+                  </h2>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    参与真实项目任务，用交付记录强化你的能力证明
+                  </p>
+                </div>
+                <ChevronRight size={20} style={{ color: 'var(--color-text-secondary)' }} />
+              </div>
+            </Link>
+          </div>
+        )}
+
         {/* 增值服务入口 */}
         {hasEvaluation && (
           <motion.div

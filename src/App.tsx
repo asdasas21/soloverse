@@ -22,6 +22,32 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/** 路由守卫：仅企业端角色可访问 */
+function EnterpriseRoute({ children }: { children: React.ReactNode }) {
+  const { user, isEnterprise } = useAuthStore()
+  const location = useLocation()
+  if (!user) {
+    return <Navigate to="/auth" state={{ from: location.pathname }} replace />
+  }
+  if (!isEnterprise) {
+    return <Navigate to="/trials" replace />
+  }
+  return <>{children}</>
+}
+
+/** 路由守卫：企业端用户不能进入试炼流程 */
+function TalentRoute({ children }: { children: React.ReactNode }) {
+  const { user, isEnterprise } = useAuthStore()
+  const location = useLocation()
+  if (!user) {
+    return <Navigate to="/auth" state={{ from: location.pathname }} replace />
+  }
+  if (isEnterprise) {
+    return <Navigate to="/enterprise" replace />
+  }
+  return <>{children}</>
+}
+
 function AppInner() {
   const { initialize, initialized } = useAuthStore()
 
@@ -41,12 +67,12 @@ function AppInner() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/auth" element={<Auth />} />
-      <Route path="/trials" element={<ProtectedRoute><Trials /></ProtectedRoute>} />
-      <Route path="/trials/:id" element={<ProtectedRoute><TrialSession /></ProtectedRoute>} />
+      <Route path="/trials" element={<TalentRoute><Trials /></TalentRoute>} />
+      <Route path="/trials/:id" element={<TalentRoute><TrialSession /></TalentRoute>} />
       <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/cert/:id" element={<Certificate />} />
       <Route path="/leaderboard" element={<Leaderboard />} />
-      <Route path="/enterprise" element={<ProtectedRoute><EnterpriseDashboard /></ProtectedRoute>} />
+      <Route path="/enterprise" element={<EnterpriseRoute><EnterpriseDashboard /></EnterpriseRoute>} />
       <Route path="/skills" element={<ProtectedRoute><SkillStudio /></ProtectedRoute>} />
       <Route path="*" element={<div className="min-h-screen flex items-center justify-center bg-[#f5f4ed] text-[#5e5d59]">404 - 页面不存在</div>} />
     </Routes>

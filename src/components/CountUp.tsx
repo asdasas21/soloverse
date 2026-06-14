@@ -33,7 +33,7 @@ export default function CountUp({ target, suffix = '', duration = 2000 }: CountU
           requestAnimationFrame(animate);
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.1 }
     );
 
     if (ref.current) observer.observe(ref.current);

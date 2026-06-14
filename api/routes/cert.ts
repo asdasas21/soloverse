@@ -22,7 +22,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       issued_at,
       verification_code,
       is_revoked,
-      profiles!inner(display_name, username)
+      profiles(display_name, username)
     `)
     .eq('is_revoked', false)
 
@@ -46,6 +46,13 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
+  // Separate query for profile to avoid join issues
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('display_name, username')
+    .eq('id', data.user_id)
+    .maybeSingle()
+
   // Compute valid-until date (1 year after issue)
   const issuedAt = new Date(data.issued_at as string)
   const validUntil = new Date(issuedAt)
@@ -58,16 +65,12 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     C3: '专家级',
   }
 
-  // With limit(1) + maybeSingle, profiles is an array with at most one element
-  const profileRows = data.profiles as Array<{ display_name: string; username: string }>
-  const profile = profileRows && profileRows.length > 0 ? profileRows[0] : null
-
   res.json({
     success: true,
     data: {
       id: data.cert_number,
       userId: data.user_id,
-      userName: profile?.display_name || profile?.username || 'TalentX 用户',
+      userName: profileData?.display_name || profileData?.username || 'TalentX 用户',
       level: data.level,
       levelName: levelNameMap[data.level] ?? data.level,
       certScore: data.cert_score,

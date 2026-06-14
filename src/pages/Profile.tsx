@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Award, BookOpen, Shield, ChevronRight, ArrowLeft, Share2 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
@@ -45,29 +45,11 @@ const DIM_TAGS: Record<Dimension, string[]> = {
 };
 
 
-function useCountUp(target: number, duration = 1200) {
-  const [value, setValue] = useState(0);
-  const start = useRef<number | null>(null);
-  useEffect(() => {
-    start.current = null;
-    const step = (ts: number) => {
-      if (!start.current) start.current = ts;
-      const progress = Math.min((ts - start.current) / duration, 1);
-      setValue(Math.round(progress * target));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [target, duration]);
-  return value;
-}
-
 function ScoreCard({ dim, score, index }: { dim: Dimension; score: number; index: number }) {
-  const displayed = useCountUp(score);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1, duration: 0.4 }}
       className="rounded-xl p-4 border"
       style={{
@@ -85,14 +67,13 @@ function ScoreCard({ dim, score, index }: { dim: Dimension; score: number; index
           {DIM_LABELS[dim]}
         </span>
         <span className="text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-brand)' }}>
-          {displayed}
+          {score}
         </span>
       </div>
       <div className="h-1.5 rounded-full" style={{ background: '#e8e6dc' }}>
         <motion.div
           initial={{ width: 0 }}
-          whileInView={{ width: `${score}%` }}
-          viewport={{ once: true }}
+          animate={{ width: `${score}%` }}
           transition={{ delay: index * 0.1 + 0.3, duration: 0.8, ease: 'easeOut' }}
           className="h-full rounded-full"
           style={{ background: 'var(--color-brand)' }}
@@ -379,7 +360,6 @@ export default function Profile() {
           </h2>
           <div className="space-y-2">
             {trialHistory.map((t: any, idx: number) => {
-              const prevSame = idx > 0 && trialHistory[idx - 1].name === t.name;
               const attemptCount = trialHistory.filter((h: any, i: number) => i <= idx && h.name === t.name).length;
               return (
                 <div

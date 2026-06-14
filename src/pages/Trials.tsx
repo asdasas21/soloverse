@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Clock, Users, Trophy, Flame } from "lucide-react";
+import { Clock, Users, Flame, Layers } from "lucide-react";
 import { type TrialCard } from "@/store/trialStore";
 import { getTrials } from "@/api/client";
+import { getTrialPhases, PHASE_TYPE_META } from "@/data/trialPhases";
 
 const difficultyConfig: Record<
   TrialCard["difficulty"],
@@ -21,6 +22,7 @@ const difficultyConfig: Record<
 function TrialCardComponent({ trial, index }: { trial: TrialCard; index: number }) {
   const navigate = useNavigate();
   const diff = difficultyConfig[trial.difficulty];
+  const phases = getTrialPhases(trial.id);
 
   return (
     <motion.div
@@ -41,7 +43,25 @@ function TrialCardComponent({ trial, index }: { trial: TrialCard; index: number 
         </span>
       </div>
 
-      <p className="text-sm text-[#5e5d59] mb-5 leading-relaxed">{trial.description}</p>
+      <p className="text-sm text-[#5e5d59] mb-4 leading-relaxed">{trial.description}</p>
+
+      {/* 多阶段标签 */}
+      <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+        <Layers size={12} style={{ color: "#c96442" }} />
+        <span className="text-[11px] font-medium" style={{ color: "#87867f" }}>{phases.length} 阶段评估：</span>
+        {phases.map((phase, _i) => {
+          const meta = PHASE_TYPE_META[phase.type];
+          return (
+            <span
+              key={phase.id}
+              className="text-[10px] px-1.5 py-0.5 rounded-full"
+              style={{ background: `${meta.color}12`, color: meta.color }}
+            >
+              {phase.title}
+            </span>
+          );
+        })}
+      </div>
 
       <div className="flex items-center gap-4 text-xs text-[#87867f] mb-5">
         <span className="flex items-center gap-1.5">
@@ -51,10 +71,6 @@ function TrialCardComponent({ trial, index }: { trial: TrialCard; index: number 
         <span className="flex items-center gap-1.5">
           <Users size={14} />
           {trial.participants} 人参与
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Trophy size={14} />
-          {trial.type === "hackathon" ? "黑客松" : "代码审查"}
         </span>
       </div>
 
@@ -116,7 +132,7 @@ export default function Trials() {
             </h1>
           </div>
           <p className="text-[#5e5d59] text-base max-w-xl leading-relaxed">
-            选择一项试炼挑战，与 AI 导师实时互动，展现你的技术实力。完成试炼即可获得能力评估报告。
+            选择一项真实工程场景。你将在交互式工作区中操作——做决策、写代码、审 diff、画架构。AI 在后台静默采集行为数据，不是聊天口试。
           </p>
         </motion.div>
 

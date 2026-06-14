@@ -13,6 +13,59 @@ interface Trial {
   duration: string
   participants: number
   status: string
+  agentPersona?: AgentPersona
+}
+
+// AI 导师角色定义
+interface AgentPersona {
+  name: string          // 角色名称
+  title: string         // 头衔
+  avatar: string        // bootstrap icon class
+  personality: string   // 性格描述（用于前端展示）
+  systemPromptSuffix: string  // 附加到 system prompt 的角色指令
+}
+
+// 4 种 AI 角色映射
+const AGENT_PERSONAS: Record<string, AgentPersona> = {
+  'tech-lead': {
+    name: 'Marcus',
+    title: '严厉的 Tech Lead',
+    avatar: 'bi-person-badge-fill',
+    personality: '高压追问，不容敷衍，对技术细节锱铢必较',
+    systemPromptSuffix: '\n\n你现在扮演 Marcus，一位严厉的 Tech Lead。你的风格是：直接、高压、追问细节。不要让用户轻易过关，对每个回答都要找到可以追问的点。',
+  },
+  'mentor': {
+    name: 'Sarah',
+    title: '友善的 Mentor',
+    avatar: 'bi-emoji-smile',
+    personality: '引导式提问，鼓励探索，善于发现闪光点',
+    systemPromptSuffix: '\n\n你现在扮演 Sarah，一位友善的 Mentor。你的风格是：温暖、鼓励、引导式。先肯定用户的思考，再引导深入。',
+  },
+  'reviewer': {
+    name: 'David',
+    title: '挑剔的 Code Reviewer',
+    avatar: 'bi-bug-fill',
+    personality: '逐行审查，关注边界条件，对代码质量要求极高',
+    systemPromptSuffix: '\n\n你现在扮演 David，一位挑剔的 Code Reviewer。你的风格是：逐行审查、关注边界条件、对命名规范和代码质量要求极高。',
+  },
+  'pm': {
+    name: 'Emma',
+    title: '务实的 Product Manager',
+    avatar: 'bi-clipboard-data-fill',
+    personality: '需求变更测试，关注用户价值，善于提出 trade-off 问题',
+    systemPromptSuffix: '\n\n你现在扮演 Emma，一位务实的 Product Manager。你的风格是：关注用户价值、善用 trade-off 思维、偶尔抛出需求变更来测试应变能力。',
+  },
+}
+
+// 每个试炼 ID 对应的角色映射
+const TRIAL_PERSONA_MAP: Record<string, string> = {
+  'ai-hackathon': 'tech-lead',
+  'rag-system': 'mentor',
+  'code-review': 'reviewer',
+  'system-design': 'pm',
+  'frontend-eng': 'reviewer',
+  'debug-master': 'tech-lead',
+  'api-design': 'pm',
 }
 
 /** GET /api/trials - list all active trials */
@@ -71,6 +124,10 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     participants: data.participant_count,
     status: data.status,
   }
+
+  // 附加 AI 角色人格
+  const personaKey = TRIAL_PERSONA_MAP[data.id] || 'mentor'
+  trial.agentPersona = AGENT_PERSONAS[personaKey]
 
   res.json({ success: true, data: trial })
 })
@@ -167,7 +224,13 @@ router.post('/:id/start', async (req: Request, res: Response): Promise<void> => 
       turnCount: existingTurnCount,
       greeting: existingMessages.length > 0
         ? ''
-        : `欢迎参加「${trial.title}」！我是你的 AI 导师，有任何问题都可以随时问我。准备好了就开始吧！`,
+        : (() => {
+            // 使用角色名称生成个性化开场白
+            const personaKey = TRIAL_PERSONA_MAP[trialId] || 'mentor'
+            const persona = AGENT_PERSONAS[personaKey]
+            const mentorName = persona?.name || 'AI 导师'
+            return `欢迎参加「${trial.title}」！我是${mentorName}，你的${persona?.title || '导师'}，有任何问题都可以随时问我。准备好了就开始吧！`
+          })(),
     },
   })
 })

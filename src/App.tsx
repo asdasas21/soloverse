@@ -8,6 +8,8 @@ import Profile from '@/pages/Profile'
 import Certificate from '@/pages/Certificate'
 import Auth from '@/pages/Auth'
 import Leaderboard from '@/pages/Leaderboard'
+import EnterpriseDashboard from '@/pages/EnterpriseDashboard'
+import SkillStudio from '@/pages/SkillStudio'
 import { useAuthStore } from '@/store/authStore'
 
 /** 路由守卫：未登录用户重定向到 /auth */
@@ -44,6 +46,8 @@ function AppInner() {
       <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/cert/:id" element={<Certificate />} />
       <Route path="/leaderboard" element={<Leaderboard />} />
+      <Route path="/enterprise" element={<ProtectedRoute><EnterpriseDashboard /></ProtectedRoute>} />
+      <Route path="/skills" element={<ProtectedRoute><SkillStudio /></ProtectedRoute>} />
       <Route path="*" element={<div className="min-h-screen flex items-center justify-center bg-[#f5f4ed] text-[#5e5d59]">404 - 页面不存在</div>} />
     </Routes>
   )

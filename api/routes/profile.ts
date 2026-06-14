@@ -3,6 +3,16 @@ import { supabase, computeCertScore, getCertLevel, type Portrait } from '../lib/
 
 const router = Router()
 
+// 计算能力保鲜度
+function calculateFreshness(lastEvalDate: string | null): { score: number; label: string; color: string } {
+  if (!lastEvalDate) return { score: 0, label: '未评估', color: '#87867f' }
+  const days = Math.floor((Date.now() - new Date(lastEvalDate).getTime()) / (1000 * 60 * 60 * 24))
+  if (days <= 30) return { score: 100, label: '新鲜', color: '#4a8c6f' }
+  if (days <= 60) return { score: 80, label: '正常', color: '#6dbf8e' }
+  if (days <= 90) return { score: 60, label: '需更新', color: '#f59e0b' }
+  return { score: 30, label: '过期', color: '#c96442' }
+}
+
 /** GET /api/profile/:id */
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const userId = req.params.id
@@ -126,6 +136,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       certLevel,
       certification,
       trialHistory,
+      abilityFreshness: calculateFreshness(evaluation ? (evaluation.created_at as string) : null),
     },
   })
 })

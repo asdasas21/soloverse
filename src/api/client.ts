@@ -2,6 +2,14 @@ import { supabase } from '@/lib/supabase';
 
 const API_BASE = '/api';
 
+export interface AgentPersona {
+  name: string;
+  title: string;
+  avatar: string;
+  personality: string;
+  systemPromptSuffix: string;
+}
+
 export interface TrialData {
   id: string;
   title: string;
@@ -11,6 +19,7 @@ export interface TrialData {
   duration: string;
   participants: number;
   status: string;
+  agentPersona?: AgentPersona;
 }
 
 /** 获取当前用户的 Supabase access token */

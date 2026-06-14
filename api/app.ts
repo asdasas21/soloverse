@@ -15,9 +15,11 @@ import trialRoutes from './routes/trials.js'
 import chatRoutes from './routes/chat.js'
 import evaluateRoutes from './routes/evaluate.js'
 import profileRoutes from './routes/profile.js'
+import seasonRoutes from './routes/season.js'
 import certRoutes from './routes/cert.js'
 import leaderboardRoutes from './routes/leaderboard.js'
 import enterpriseRoutes from './routes/enterprise.js'
+import skillsRouter, { codingEventsRouter } from './routes/skills.js'
 
 dotenv.config({ override: true })
 
@@ -46,8 +48,8 @@ app.use(cors({
       callback(null, true) // Permissive in dev; tighten for production
     }
   },
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'x-user-id'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
+  allowedHeaders: ['Content-Type', 'x-user-id', 'authorization'],
   credentials: true,
 }))
 
@@ -90,9 +92,12 @@ app.use('/api/trials', trialRoutes)
 app.use('/api/chat', chatLimiter, chatRoutes)
 app.use('/api/evaluate', evaluateLimiter, evaluateRoutes)
 app.use('/api/profile', profileRoutes)
+app.use('/api/season', seasonRoutes)
 app.use('/api/cert', certRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/enterprise', enterpriseRoutes)
+app.use('/api/skills', skillsRouter)
+app.use('/api/coding-events', codingEventsRouter)
 
 /**
  * Health check

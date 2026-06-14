@@ -268,6 +268,26 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     if (trial?.system_prompt) {
       systemPrompt = trial.system_prompt
     }
+    // 追加 AI 角色人格指令
+    const personaMap: Record<string, string> = {
+      'ai-hackathon': 'tech-lead',
+      'rag-system': 'mentor',
+      'code-review': 'reviewer',
+      'system-design': 'pm',
+      'frontend-eng': 'reviewer',
+      'debug-master': 'tech-lead',
+      'api-design': 'pm',
+    }
+    const personaSuffixes: Record<string, string> = {
+      'tech-lead': '\n\n你现在扮演 Marcus，一位严厉的 Tech Lead。你的风格是：直接、高压、追问细节。不要让用户轻易过关。',
+      'mentor': '\n\n你现在扮演 Sarah，一位友善的 Mentor。你的风格是：温暖、鼓励、引导式。',
+      'reviewer': '\n\n你现在扮演 David，一位挑剔的 Code Reviewer。你的风格是：逐行审查、关注边界条件。',
+      'pm': '\n\n你现在扮演 Emma，一位务实的 Product Manager。你的风格是：关注用户价值、善用 trade-off 思维。',
+    }
+    const personaKey = personaMap[session.trial_id]
+    if (personaKey && personaSuffixes[personaKey]) {
+      systemPrompt += personaSuffixes[personaKey]
+    }
   }
 
   // Add user message to history

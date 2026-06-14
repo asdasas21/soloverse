@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Award, BookOpen, Shield, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Award, BookOpen, Shield, ChevronRight, ArrowLeft, Share2 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
+import ShareCard from '@/components/ShareCard';
+import AbilityDNA from '@/components/AbilityDNA';
+import CareerPath from '@/components/CareerPath';
+import SkillTree from '@/components/SkillTree';
+import SeasonBadge from '@/components/SeasonBadge';
+import PeerReview from '@/components/PeerReview';
 import RadarChartWrapper from '@/components/RadarChart';
+import GrowthTimeline from '@/components/GrowthTimeline';
 import {
   computeCertScore,
   getCertLevel,
@@ -102,6 +109,7 @@ export default function Profile() {
   const { id: userId } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [apiData, setApiData] = useState<any>(null);
+  const [showShareCard, setShowShareCard] = useState(false);
 
   useEffect(() => {
     if (!userId) { setLoading(false); return; }
@@ -224,6 +232,15 @@ export default function Profile() {
           <Link to={`/cert/${userId}`} className="shrink-0">
             <ChevronRight size={20} style={{ color: 'var(--color-text-tertiary)' }} />
           </Link>
+          {hasEvaluation && (
+            <button
+              onClick={() => setShowShareCard(true)}
+              className="shrink-0 p-2 rounded-lg transition-colors hover:bg-[#e8e6dc]"
+              title="生成分享卡片"
+            >
+              <Share2 size={18} style={{ color: 'var(--color-text-secondary)' }} />
+            </button>
+          )}
         </motion.div>
 
         {/* Radar Chart */}
@@ -245,6 +262,11 @@ export default function Profile() {
             <RadarChartWrapper data={radarData} title="能力画像" animate />
           </div>
         </motion.div>
+
+        {/* 能力 DNA */}
+        <div className="mb-6">
+          <AbilityDNA portrait={portrait} certScore={certScore} />
+        </div>
 
         {/* Dimension Detail Cards */}
         <div className="grid grid-cols-2 gap-3 mb-8">
@@ -279,6 +301,18 @@ export default function Profile() {
             ))}
           </div>
         </motion.div>
+
+        {/* 成长时间线 */}
+        {trialHistory.length >= 1 && (
+          <div className="mb-8">
+            <GrowthTimeline history={trialHistory} />
+          </div>
+        )}
+
+        {/* 赛季徽章 + 能力保鲜度 */}
+        <div className="mb-8">
+          <SeasonBadge freshness={apiData?.abilityFreshness} />
+        </div>
 
         {/* Certification */}
         <motion.div
@@ -376,7 +410,39 @@ export default function Profile() {
             </motion.div>
           );
         })()}
+
+        {/* 智能职业路径规划 */}
+        {hasEvaluation && (
+          <div className="mt-4">
+            <CareerPath portrait={portrait} certScore={certScore} />
+          </div>
+        )}
+
+        {/* 技能树解锁系统 */}
+        {hasEvaluation && (
+          <div className="mt-6">
+            <SkillTree portrait={portrait} certScore={certScore} trialCount={trialHistory.length} />
+          </div>
+        )}
+
+        {/* 社区盲评 */}
+        {hasEvaluation && (
+          <div className="mt-6">
+            <PeerReview certScore={certScore} userId={userId || ''} />
+          </div>
+        )}
       </div>
+
+      {/* 能力分享卡片 */}
+      {showShareCard && portrait && (
+        <ShareCard
+          userName={displayName}
+          certLevel={certLevel}
+          certScore={certScore}
+          portrait={portrait}
+          onClose={() => setShowShareCard(false)}
+        />
+      )}
 
       <style>{`
         @keyframes badge-glow {

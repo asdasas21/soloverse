@@ -418,7 +418,9 @@ export default function TrialSession() {
                         >
                           <Bot size={12} className="text-white" />
                         </motion.div>
-                        <span className="text-xs font-medium" style={{ color: "#87867f" }}>AI 导师</span>
+                        <span className="text-xs font-medium" style={{ color: "#87867f" }}>
+                          {trialData?.agentPersona?.name || 'AI'} · {trialData?.agentPersona?.title || '导师'}
+                        </span>
                         <span className="text-[10px] text-[#c4c3bd]">· #{idx + 1}</span>
                       </div>
 
@@ -477,7 +479,9 @@ export default function TrialSession() {
                   >
                     <Bot size={12} className="text-white" />
                   </motion.div>
-                  <span className="text-xs font-medium" style={{ color: "#87867f" }}>正在回复</span>
+                  <span className="text-xs font-medium" style={{ color: "#87867f" }}>
+                    {(trialData?.agentPersona?.name || 'AI') + ' 正在回复'}
+                  </span>
                 </div>
                 <div className="text-sm leading-relaxed" style={{ color: "#141413" }}>
                   <RichText text={streamingText} />
@@ -558,6 +562,69 @@ export default function TrialSession() {
                     </div>
                   )}
 
+                  {/* AI 定性评审报告 */}
+                  {evaluation.report && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.6 }}
+                      className="mb-4 space-y-3"
+                    >
+                      {evaluation.report.summary && (
+                        <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.6)" }}>
+                          <p className="text-sm leading-relaxed" style={{ color: "#141413" }}>
+                            <i className="bi bi-quote" style={{ color: "#c96442", marginRight: 4 }} />
+                            {evaluation.report.summary}
+                          </p>
+                        </div>
+                      )}
+                      {evaluation.report.strengths?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <i className="bi bi-star-fill" style={{ fontSize: "11px", color: "#4a8c6f" }} />
+                            <span className="text-xs font-semibold" style={{ color: "#4a8c6f" }}>亮点表现</span>
+                          </div>
+                          <ul className="space-y-1">
+                            {evaluation.report.strengths.map((s: string, i: number) => (
+                              <li key={i} className="text-xs leading-relaxed pl-3" style={{ color: "#3a3a38", borderLeft: "2px solid rgba(74,140,111,0.3)" }}>
+                                {s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {evaluation.report.improvements?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <i className="bi bi-lightbulb" style={{ fontSize: "11px", color: "#c96442" }} />
+                            <span className="text-xs font-semibold" style={{ color: "#c96442" }}>提升建议</span>
+                          </div>
+                          <ul className="space-y-1">
+                            {evaluation.report.improvements.map((s: string, i: number) => (
+                              <li key={i} className="text-xs leading-relaxed pl-3" style={{ color: "#3a3a38", borderLeft: "2px solid rgba(201,100,66,0.3)" }}>
+                                {s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {evaluation.report.evidence?.length > 0 && (
+                        <div className="space-y-2">
+                          {evaluation.report.evidence.map((ev: { dimension: string; quote: string; comment: string }, i: number) => (
+                            <div key={i} className="rounded-lg p-2.5" style={{ background: "rgba(255,255,255,0.5)" }}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <i className={`bi ${DIM_ICONS[ev.dimension] || "bi-chat-quote"}`} style={{ fontSize: "10px", color: "#c96442" }} />
+                                <span className="text-[10px] font-medium" style={{ color: "#87867f" }}>{DIM_LABELS[ev.dimension] || ev.dimension}</span>
+                              </div>
+                              <p className="text-xs italic mb-1" style={{ color: "#5e5d59" }}>"{ev.quote}"</p>
+                              <p className="text-[11px]" style={{ color: "#87867f" }}>{ev.comment}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <span className="text-sm" style={{ color: "#5e5d59" }}>
                       综合分 <span className="font-bold text-lg" style={{ color: "#c96442" }}>{evaluation.certification?.certScore ?? evaluation.certScore ?? "—"}</span>
@@ -599,6 +666,21 @@ export default function TrialSession() {
                   </div>
                   <p className="text-xs leading-relaxed" style={{ color: "#5e5d59" }}>{trialData.description}</p>
                 </div>
+
+                {/* AI 导师角色信息 */}
+                {trialData?.agentPersona && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className={`bi ${trialData.agentPersona.avatar}`} style={{ fontSize: "12px", color: "#c96442" }} />
+                      <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>AI 导师</h3>
+                    </div>
+                    <div className="rounded-lg p-2.5" style={{ background: "rgba(201,100,66,0.06)" }}>
+                      <div className="text-sm font-semibold" style={{ color: "#c96442" }}>{trialData.agentPersona.name}</div>
+                      <div className="text-[10px] mb-1" style={{ color: "#87867f" }}>{trialData.agentPersona.title}</div>
+                      <p className="text-[11px]" style={{ color: "#5e5d59" }}>{trialData.agentPersona.personality}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* 评分维度说明 */}
                 <div>

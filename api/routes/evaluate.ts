@@ -11,6 +11,169 @@ import {
 
 const router = Router()
 
+// 维度 key 到中文标签的映射（用于报告生成）
+const DIM_LABELS: Record<string, string> = {
+  curiosity: '好奇心',
+  reliability: '靠谱',
+  factChecking: '事实洁癖',
+  diverseThinking: '多元化思维',
+  uncertaintyTolerance: '忍受不确定性',
+  lowEgoHighDrive: '低ego高自驱',
+}
+
+// AI 定性评审报告结构
+interface AIReport {
+  summary: string // 一句话总结
+  strengths: string[] // 2-3 个亮点
+  improvements: string[] // 1-2 个改进建议
+  evidence: Array<{ // 证据引用
+    dimension: string // 维度 key (curiosity, reliability, etc.)
+    quote: string // 用户对话中的原话
+    comment: string // AI 点评
+  }>
+}
+
+// --- GLM API 调用（独立实现，不依赖 chat.ts） ---
+
+async function callGLM(
+  messages: Array<{ role: string; content: string }>,
+  options?: { temperature?: number; responseFormat?: 'text' | 'json' }
+): Promise<string> {
+  const apiKey = process.env.ZHIPU_API_KEY
+  const apiBase = process.env.ZHIPU_API_BASE || 'https://open.bigmodel.cn/api/paas/v4'
+  const model = process.env.ZHIPU_MODEL || 'glm-4-flash'
+
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    temperature: options?.temperature ?? 0.7,
+    max_tokens: 2048,
+  }
+
+  // 智谱AI 支持 JSON 模式
+  if (options?.responseFormat === 'json') {
+    body.response_format = { type: 'json_object' }
+  }
+
+  const res = await fetch(`${apiBase}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    throw new Error(`GLM API error: ${res.status}`)
+  }
+
+  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> }
+  return data.choices[0].message.content
+}
+
+// --- 基于 portrait 分数的 fallback 报告（GLM 不可用时使用） ---
+
+function generateFallbackReport(portrait: Portrait): AIReport {
+  const entries = Object.entries(portrait) as Array<[keyof Portrait, number]>
+  // 按分数降序排列
+  const sorted = [...entries].sort((a, b) => b[1] - a[1])
+  const top = sorted[0]
+  const bottom = sorted[sorted.length - 1]
+
+  return {
+    summary: '基于对话表现的综合能力评估已完成，整体表现处于中等水平，仍有提升空间。',
+    strengths: [
+      `${DIM_LABELS[top[0]]}维度表现突出（${top[1]}分），展现了良好的相关能力。`,
+    ],
+    improvements: [
+      `${DIM_LABELS[bottom[0]]}维度相对薄弱（${bottom[1]}分），建议针对性加强。`,
+    ],
+    evidence: [],
+  }
+}
+
+// --- 调用 GLM 生成定性评审报告 ---
+
+const REPORT_SYSTEM_PROMPT = `你是一位严谨的技术能力评估专家。请根据用户在技术试炼中的对话记录和六维能力分数，生成一份定性分析报告。
+
+要求：
+1. summary：用一句话概括用户的整体表现（中文，不超过50字）
+2. strengths：列出 2-3 个突出亮点，结合具体能力维度
+3. improvements：列出 1-2 个改进建议，具体可执行
+4. evidence：从用户对话中引用原话作为证据，每条包含 dimension（维度 key：curiosity/reliability/factChecking/diverseThinking/uncertaintyTolerance/lowEgoHighDrive）、quote（用户原话，不超过80字）、comment（你的点评，中文）
+
+必须返回 JSON 对象，格式：
+{"summary": "string", "strengths": ["string"], "improvements": ["string"], "evidence": [{"dimension": "string", "quote": "string", "comment": "string"}]}
+
+只返回 JSON，不要返回其他内容。所有文字必须使用中文。`
+
+async function generateAIReport(
+  sessionId: string,
+  portrait: Portrait
+): Promise<AIReport> {
+  // 从 Supabase 加载 session 的 messages（对话历史）
+  const { data: sessionRow, error } = await supabase
+    .from('trial_sessions')
+    .select('messages')
+    .eq('id', sessionId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to load session messages: ${error.message}`)
+  }
+
+  const messages: Array<{ role: string; content: string }> =
+    Array.isArray(sessionRow?.messages) ? sessionRow.messages : []
+
+  // 提取用户发言作为对话文本
+  const userTurns = messages.filter((m) => m.role === 'user')
+  const conversationText =
+    userTurns.length > 0
+      ? userTurns
+          .map((m, i) => `【用户发言${i + 1}】${m.content}`)
+          .join('\n\n')
+      : '（无对话记录）'
+
+  const glmMessages = [
+    { role: 'system', content: REPORT_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: `以下是用户在技术试炼中的对话记录：
+
+${conversationText}
+
+用户当前的六维能力分数：
+${JSON.stringify(portrait, null, 2)}
+
+维度含义：
+- curiosity（好奇心）
+- reliability（靠谱）
+- factChecking（事实洁癖）
+- diverseThinking（多元化思维）
+- uncertaintyTolerance（忍受不确定性）
+- lowEgoHighDrive（低ego高自驱）
+
+请基于以上信息生成定性分析报告。`,
+    },
+  ]
+
+  const result = await callGLM(glmMessages, {
+    temperature: 0.4,
+    responseFormat: 'json',
+  })
+
+  const parsed = JSON.parse(result) as AIReport
+
+  // 字段补全，保证结构稳定
+  return {
+    summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+    strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+    improvements: Array.isArray(parsed.improvements) ? parsed.improvements : [],
+    evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
+  }
+}
+
 /** POST /api/evaluate */
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const { trialId, sessionId } = req.body as {
@@ -68,6 +231,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const certScore = computeCertScore(portrait)
   const certLevel = getCertLevel(certScore)
 
+  // 生成 AI 定性评审报告（失败时使用 fallback，不阻断评估流程）
+  let aiReport: AIReport
+  try {
+    aiReport = await generateAIReport(sessionId, portrait)
+  } catch (err) {
+    console.error('[evaluate] AI report generation failed, using fallback:', err)
+    aiReport = generateFallbackReport(portrait)
+  }
+
   // Insert evaluation record (only if we have a valid session)
   let evaluationId: string | null = null
   if (session) {
@@ -81,6 +253,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         dimension_scores: dimensionScores,
         cert_score: certScore,
         cert_level: certLevel,
+        report: aiReport,
       })
       .select('id')
       .single()
@@ -133,6 +306,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       certification: certLevel
         ? { level: certLevel, certScore, issuedAt: new Date().toISOString().slice(0, 10) }
         : null,
+      report: aiReport,
     },
   })
 })

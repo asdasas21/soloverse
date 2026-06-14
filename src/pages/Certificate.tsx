@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Award, Printer, Share2, ShieldCheck, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { Award, Printer, Share2, ShieldCheck, AlertCircle, ArrowLeft, Loader2, Image } from 'lucide-react';
 import { getCertificate } from '@/api/client';
+import ShareCard from '@/components/ShareCard';
 
 interface CertData {
   id: string;
@@ -63,6 +64,7 @@ export default function Certificate() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -199,6 +201,9 @@ export default function Certificate() {
           <button onClick={handleShare} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: '#c96442' }}>
             <Share2 size={16} /> 分享
           </button>
+          <button onClick={() => setShowShareCard(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'linear-gradient(135deg, #c96442, #d97757)' }}>
+            <Image size={16} /> 分享卡片
+          </button>
         </motion.div>
 
         {toast && (
@@ -207,6 +212,17 @@ export default function Certificate() {
           </motion.div>
         )}
       </motion.div>
+
+      {/* 能力分享卡片 */}
+      {showShareCard && cert && (
+        <ShareCard
+          userName={cert.userName}
+          certLevel={cert.level}
+          certScore={cert.certScore}
+          portrait={cert.dimensions as any}
+          onClose={() => setShowShareCard(false)}
+        />
+      )}
 
       <style>{`
         @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }

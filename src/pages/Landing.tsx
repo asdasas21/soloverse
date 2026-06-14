@@ -122,6 +122,8 @@ export default function Landing() {
           <div className="flex items-center gap-4 text-sm" style={{ color: '#5e5d59' }}>
             <Link to="/trials" className="hover:opacity-70 transition-opacity">试炼大厅</Link>
             <Link to="/leaderboard" className="hover:opacity-70 transition-opacity">排行榜</Link>
+            <Link to="/skills" className="hover:opacity-70 transition-opacity">Skill Studio</Link>
+            <Link to="/enterprise" className="hover:opacity-70 transition-opacity">企业端</Link>
             <a href="#about" className="hover:opacity-70 transition-opacity">关于我们</a>
             <NavAuth />
           </div>

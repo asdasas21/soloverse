@@ -5,10 +5,19 @@ import {
   Terminal, BookOpen, Check, X, Rocket, FileText, Layers,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 
 // API 基础地址
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+
+// 统一获取认证 headers（使用 JWT token 替代 localStorage user-id）
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
+}
 
 // Skill 类型定义（与数据库字段对齐）
 type SkillKind = 'api' | 'protocol' | 'hybrid'
@@ -680,16 +689,20 @@ function LogsModal({ skill, onClose }: { skill: Skill | null; onClose: () => voi
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (skill) {
-      setLoading(true)
-      fetch(`${API_BASE}/skills/${skill.id}/logs`, {
-        headers: { 'x-user-id': localStorage.getItem('talentx_user_id') || '' },
+    if (!skill) return
+    let cancelled = false
+    setLoading(true)
+    getAuthHeaders()
+      .then((headers) =>
+        fetch(`${API_BASE}/skills/${skill.id}/invocations`, { headers })
+      )
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((data) => {
+        if (!cancelled) setLogs(Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [])
       })
-        .then((r) => (r.ok ? r.json() : { data: [] }))
-        .then((data) => setLogs(Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []))
-        .catch(() => setLogs([]))
-        .finally(() => setLoading(false))
-    }
+      .catch(() => { if (!cancelled) setLogs([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [skill])
 
   return (
@@ -1041,7 +1054,6 @@ function McpDocsPanel() {
 // 主页面组件
 // ============================================================
 export default function SkillStudio() {
-  const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'my-skills' | 'create' | 'mcp-docs'>('my-skills')
   const [skills, setSkills] = useState<Skill[]>([])
   const [loading, setLoading] = useState(true)
@@ -1050,19 +1062,13 @@ export default function SkillStudio() {
   const [logsSkill, setLogsSkill] = useState<Skill | null>(null)
   const [testingSkill, setTestingSkill] = useState<Skill | null>(null)
 
-  // 当前用户 ID（与项目既有模式一致，使用 localStorage + authStore）
-  const getUserId = useCallback((): string => {
-    return user?.id || localStorage.getItem('talentx_user_id') || ''
-  }, [user])
-
   // 获取 skills 列表
   const loadSkills = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_BASE}/skills`, {
-        headers: { 'x-user-id': getUserId() },
-      })
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${API_BASE}/skills`, { headers })
       if (!res.ok) throw new Error(`获取失败 (${res.status})`)
       const data = await res.json()
       // API 返回 { success, data } 结构
@@ -1075,7 +1081,7 @@ export default function SkillStudio() {
     } finally {
       setLoading(false)
     }
-  }, [getUserId])
+  }, [])
 
   useEffect(() => {
     loadSkills()
@@ -1088,9 +1094,10 @@ export default function SkillStudio() {
     kind: SkillKind
     protocol: any
   }) => {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/skills`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': getUserId() },
+      headers,
       body: JSON.stringify(formData),
     })
     if (!res.ok) {
@@ -1103,9 +1110,10 @@ export default function SkillStudio() {
 
   // 更新 skill（编辑）
   const handleEditSubmit = async (data: Partial<Skill>) => {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/skills/${data.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': getUserId() },
+      headers,
       body: JSON.stringify({
         title: data.title,
         description: data.description,
@@ -1124,11 +1132,12 @@ export default function SkillStudio() {
   const handlePublish = async (s: Skill) => {
     const isPublished = s.status === 'published' || s.status === 'verified'
     try {
+      const headers = await getAuthHeaders()
       if (isPublished) {
         // 撤销发布：PUT 更新状态为 draft
         const res = await fetch(`${API_BASE}/skills/${s.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'x-user-id': getUserId() },
+          headers,
           body: JSON.stringify({ status: 'draft' }),
         })
         if (!res.ok) throw new Error('撤销失败')
@@ -1136,7 +1145,7 @@ export default function SkillStudio() {
         // 发布
         const res = await fetch(`${API_BASE}/skills/${s.id}/publish`, {
           method: 'POST',
-          headers: { 'x-user-id': getUserId() },
+          headers,
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: '发布失败' }))
@@ -1153,9 +1162,10 @@ export default function SkillStudio() {
   const handleDelete = async (s: Skill) => {
     if (!confirm(`确定要删除 Skill「${s.title}」吗？此操作不可恢复。`)) return
     try {
+      const headers = await getAuthHeaders()
       const res = await fetch(`${API_BASE}/skills/${s.id}`, {
         method: 'DELETE',
-        headers: { 'x-user-id': getUserId() },
+        headers,
       })
       if (!res.ok) throw new Error('删除失败')
       await loadSkills()

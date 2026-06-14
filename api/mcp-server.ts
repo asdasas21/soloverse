@@ -14,6 +14,7 @@ import {
   getCertLevel,
   type Portrait,
 } from './lib/supabase.js'
+import { getAuthenticatedUserId } from './middleware/auth.js'
 
 const router = Router()
 
@@ -348,7 +349,13 @@ async function invokeSkill(
 
   try {
     if (skill.endpoint) {
-      // 调用 skill 的 HTTP 端点
+      // SSRF 防护：只允许相对路径的内部 endpoint（以 /api/ 开头）
+      if (!skill.endpoint.startsWith('/api/')) {
+        throw new Error('Invalid endpoint: only internal /api/ paths are allowed')
+      }
+      // 调用 skill 的 HTTP 端点（带超时保护）
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15000)
       const response = await fetch(
         `${process.env.API_BASE_URL || 'http://localhost:3001'}${skill.endpoint}`,
         {
@@ -358,8 +365,10 @@ async function invokeSkill(
             'x-user-id': skill.user_id,
           },
           body: JSON.stringify(input),
+          signal: controller.signal,
         }
       )
+      clearTimeout(timeout)
 
       if (response.ok) {
         output = (await response.json()) as Record<string, unknown>
@@ -394,20 +403,11 @@ async function invokeSkill(
     status,
   })
 
-  // 更新 skill 的调用次数和最后调用时间
-  const { data: curSkill } = await supabase
-    .from('skills')
-    .select('invoke_count')
-    .eq('id', skillId)
-    .maybeSingle()
-
-  await supabase
-    .from('skills')
-    .update({
-      invoke_count: (curSkill?.invoke_count || 0) + 1,
-      last_invoked_at: new Date().toISOString(),
-    })
-    .eq('id', skillId)
+  // 更新 skill 的调用次数（使用 RPC 原子递增防止竞态）
+  const { error: rpcError } = await supabase.rpc('increment_invoke_count', { skill_id: skillId })
+  if (rpcError) {
+    console.error('[mcp] increment_invoke_count failed:', rpcError.message)
+  }
 
   return {
     success: status === 'success',
@@ -676,6 +676,19 @@ async function handleToolCall(
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const { method, params, id } = req.body ?? {}
+
+  // 鉴权：除 initialize 和 ping 外，所有请求都需要认证
+  if (method !== 'initialize' && method !== 'ping') {
+    const userId = await getAuthenticatedUserId(req)
+    if (!userId) {
+      res.status(401).json({
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32001, message: 'Authentication required' },
+      })
+      return
+    }
+  }
 
   // JSON-RPC 2.0 协议处理
   switch (method) {

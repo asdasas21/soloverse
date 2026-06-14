@@ -150,7 +150,7 @@ export const TRIAL_SCENARIOS: Record<string, ScenarioEvent[]> = {
           { id: 'flow', label: 'Function Calling + 简单状态机', consequence: '可控性最好，48 小时内可交付完整 MVP，符合团队技能', weight: 5 },
           { id: 'rag', label: '纯 RAG 方案', consequence: '退货退款是流程性问题，纯 RAG 无法处理状态流转', weight: 1 },
         ],
-        branches: { langgraph: 'h1-crisis-1', dify: 'h1-crisis-2', flow: 'h1-design', rag: 'h1-crisis-1' },
+        branches: { langgraph: 'h1-crisis-1', dify: 'h1-crisis-1', flow: 'h1-design', rag: 'h1-crisis-1' },
       },
     },
     {

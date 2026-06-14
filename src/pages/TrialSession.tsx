@@ -333,7 +333,7 @@ export default function TrialSession() {
                 {renderWorkspace(currentScenario)}
 
                 {/* 最后一个场景完成后显示提交 */}
-                {isLastScenario && actions.length >= scenarios.length && (
+                {isLastScenario && actions.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

@@ -20,16 +20,10 @@ export default function PitchBuilder({
   useEffect(() => {
     if (timeLeft <= 0) return
     const timer = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return t - 1
-      })
+      setTimeLeft((t) => Math.max(0, t - 1))
     }, 1000)
     return () => clearInterval(timer)
-  }, [timeLeft])
+  }, [])
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60)

@@ -640,9 +640,9 @@ export default function EnterpriseDashboard() {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(err.error || `请求失败 (${res.status})`)
       }
-      const data = await res.json()
-      setCandidates(data.data || data || [])
-      setApiError(null)
+      const json = await res.json()
+      const payload = json.data ?? json
+      setCandidates(payload.candidates ?? payload ?? [])
     } catch (err: any) {
       setApiError(err.message || '获取候选人列表失败')
       setCandidates([])
@@ -658,8 +658,9 @@ export default function EnterpriseDashboard() {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(err.error || `请求失败 (${res.status})`)
       }
-      const data = await res.json()
-      setCustomTrials(data.data || data || [])
+      const json = await res.json()
+      const payload = json.data ?? json
+      setCustomTrials(payload.trials ?? payload ?? [])
     } catch (err: any) {
       // 试炼接口失败不阻塞整体加载，静默处理
       console.warn('[enterprise] 获取试炼列表失败:', err.message)

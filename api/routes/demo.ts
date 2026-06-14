@@ -338,16 +338,68 @@ router.post('/seed-skills', async (req: Request, res: Response): Promise<void> =
       description: '自动审查 PR 代码，检查常见 bug、安全漏洞和代码规范问题。支持 Java、Python、JavaScript、Go 等主流语言。',
       user_id: authorId,
       kind: 'api',
-      protocol: { type: 'code-review', languages: ['java', 'python', 'javascript', 'go'] },
+      protocol: {
+        type: 'code-review',
+        languages: ['java', 'python', 'javascript', 'go'],
+        input_schema: {
+          type: 'object',
+          properties: {
+            code: {
+              type: 'string',
+              description: '需要审查的源代码内容',
+            },
+            language: {
+              type: 'string',
+              description: '代码语言，如 javascript、python',
+            },
+          },
+          required: ['code'],
+        },
+        output_schema: {
+          type: 'object',
+          properties: {
+            issues: {
+              type: 'array',
+              description: '发现的问题列表',
+            },
+            summary: {
+              type: 'string',
+              description: '总体评价',
+            },
+          },
+        },
+      },
       status: 'published',
       invoke_count: 42,
     },
     {
       title: '简历智能解析',
-      description: '解析 PDF/Word 简历，提取技能、经验和教育信息，输出结构化 JSON 格式。支持中英文简历。',
+      description: '解析简历文本内容，提取技能、经验和教育信息，输出结构化 JSON 格式。支持中英文简历。（调用方需先将 PDF/Word 转为纯文本传入）',
       user_id: authorId,
       kind: 'api',
-      protocol: { type: 'resume-parser', formats: ['pdf', 'docx'] },
+      protocol: {
+        type: 'resume-parser',
+        formats: ['pdf', 'docx'],
+        input_schema: {
+          type: 'object',
+          properties: {
+            resumeText: {
+              type: 'string',
+              description: '简历的纯文本内容（已从 PDF/Word 中提取）',
+            },
+          },
+          required: ['resumeText'],
+        },
+        output_schema: {
+          type: 'object',
+          properties: {
+            basic: { type: 'object', description: '基本信息（姓名、电话、邮箱）' },
+            skills: { type: 'array', description: '技能列表' },
+            experience: { type: 'array', description: '工作经历' },
+            education: { type: 'array', description: '教育经历' },
+          },
+        },
+      },
       status: 'verified',
       invoke_count: 87,
     },
@@ -356,7 +408,37 @@ router.post('/seed-skills', async (req: Request, res: Response): Promise<void> =
       description: '根据职位和难度自动生成技术面试题，含参考答案和评分标准。适用于前端、后端、算法等岗位。',
       user_id: authorId,
       kind: 'api',
-      protocol: { type: 'interview-gen', roles: ['frontend', 'backend', 'algorithm'] },
+      protocol: {
+        type: 'interview-gen',
+        roles: ['frontend', 'backend', 'algorithm'],
+        input_schema: {
+          type: 'object',
+          properties: {
+            role: {
+              type: 'string',
+              description: '岗位方向，如 frontend、backend、algorithm',
+            },
+            difficulty: {
+              type: 'string',
+              description: '难度级别：easy、medium、hard',
+            },
+            count: {
+              type: 'number',
+              description: '生成题目数量，默认 5',
+            },
+          },
+          required: ['role'],
+        },
+        output_schema: {
+          type: 'object',
+          properties: {
+            questions: {
+              type: 'array',
+              description: '生成的面试题列表',
+            },
+          },
+        },
+      },
       status: 'published',
       invoke_count: 156,
     },

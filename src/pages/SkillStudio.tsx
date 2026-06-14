@@ -295,7 +295,11 @@ function CreateSkillForm({
         title,
         description,
         kind,
-        protocol: { input: inputObj, output: outputObj, evaluationId: evaluationId || undefined },
+        protocol: {
+          input_schema: inputObj,
+          output_schema: outputObj,
+          evaluationId: evaluationId || undefined,
+        },
         inputSchema,
         outputSchema,
       })
@@ -779,30 +783,66 @@ function SkillTester({ skill, onClose }: { skill: Skill | null; onClose: () => v
   const [testResult, setTestResult] = useState<any>(null)
   const [testing, setTesting] = useState(false)
   const [testError, setTestError] = useState<string | null>(null)
+  const [progressStep, setProgressStep] = useState(0)
 
-  // 初始化输入（根据 input schema 生成占位 JSON）
+  // 调用中的分阶段提示
+  const PROGRESS_STEPS = [
+    { icon: 'bi-shield-check', label: '验证调用权限' },
+    { icon: 'bi-search', label: '加载能力画像' },
+    { icon: 'bi-cpu', label: 'AI 引擎执行中' },
+    { icon: 'bi-check2-circle', label: '生成结果' },
+  ]
+
+  // 调用中自动推进进度提示
+  useEffect(() => {
+    if (!testing) {
+      setProgressStep(0)
+      return
+    }
+    setProgressStep(0)
+    const timers: ReturnType<typeof setTimeout>[] = []
+    timers.push(setTimeout(() => setProgressStep(1), 500))
+    timers.push(setTimeout(() => setProgressStep(2), 1500))
+    timers.push(setTimeout(() => setProgressStep(3), 4000))
+    return () => timers.forEach(clearTimeout)
+  }, [testing])
+
+  // 初始化输入（根据 input_schema 生成示例 JSON）
   useEffect(() => {
     if (skill) {
       setTestResult(null)
       setTestError(null)
       try {
         const protocol = skill.protocol || {}
-        const inputSchema = protocol.input || {}
-        // 生成示例输入
+        // 统一读取 input_schema（兼容旧数据中可能存在的 input 字段）
+        const inputSchema = protocol.input_schema || protocol.input || {}
+        // 根据 schema 生成示例输入
         const sample: Record<string, any> = {}
-        if (inputSchema.properties && typeof inputSchema.properties === 'object') {
+        let hasFields = false
+        if (inputSchema.properties && typeof inputSchema.properties === 'object' && Object.keys(inputSchema.properties).length > 0) {
           for (const [k, v] of Object.entries(inputSchema.properties)) {
             const type = (v as any)?.type
-            sample[k] = type === 'number' ? 0 : type === 'boolean' ? false : type === 'array' ? [] : type === 'object' ? {} : ''
+            if (type === 'number' || type === 'integer') {
+              sample[k] = (v as any)?.default ?? 0
+            } else if (type === 'boolean') {
+              sample[k] = (v as any)?.default ?? false
+            } else if (type === 'array') {
+              sample[k] = (v as any)?.default ?? []
+            } else if (type === 'object') {
+              sample[k] = (v as any)?.default ?? {}
+            } else {
+              sample[k] = (v as any)?.default ?? ((v as any)?.description || '')
+            }
+            hasFields = true
           }
-        } else if (typeof inputSchema === 'object') {
-          for (const [k, v] of Object.entries(inputSchema)) {
-            sample[k] = typeof v === 'string' ? '' : v
-          }
+        }
+        // 如果 schema 没有定义字段，提供一个通用示例模板，而不是空 {}
+        if (!hasFields) {
+          sample.input = '在这里填写测试输入'
         }
         setTestInput(JSON.stringify(sample, null, 2))
       } catch {
-        setTestInput('{}')
+        setTestInput('{\n  "input": "在这里填写测试输入"\n}')
       }
     }
   }, [skill])
@@ -822,9 +862,10 @@ function SkillTester({ skill, onClose }: { skill: Skill | null; onClose: () => v
     setTestError(null)
     setTestResult(null)
     try {
+      const headers = await getAuthHeaders()
       const res = await fetch(`${API_BASE}/skills/${skill.id}/invoke`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ input: inputObj, callerLabel: 'studio-tester' }),
       })
       const data = await res.json()
@@ -878,7 +919,7 @@ function SkillTester({ skill, onClose }: { skill: Skill | null; onClose: () => v
                   className="text-[11px] font-mono p-3 rounded-lg overflow-x-auto"
                   style={{ background: '#1a1a1a', color: '#f8f8f2' }}
                 >
-                  {JSON.stringify(skill.protocol?.input || {}, null, 2)}
+                  {JSON.stringify(skill.protocol?.input_schema || skill.protocol?.input || {}, null, 2)}
                 </pre>
               </div>
 
@@ -907,6 +948,70 @@ function SkillTester({ skill, onClose }: { skill: Skill | null; onClose: () => v
                   {testing ? '调用中...' : '测试调用'}
                 </button>
               </div>
+
+              {/* 调用中进度引导 */}
+              <AnimatePresence>
+                {testing && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-4 rounded-xl p-4 overflow-hidden"
+                    style={{ background: 'rgba(201,100,66,0.04)', border: '1px solid rgba(201,100,66,0.12)' }}
+                  >
+                    {/* 旋转图标 + 主提示 */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                        className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                        style={{ borderColor: 'rgba(201,100,66,0.2)', borderTopColor: '#c96442' }}
+                      />
+                      <span className="text-sm font-medium" style={{ color: '#c96442' }}>
+                        Skill 正在执行，请稍候...
+                      </span>
+                    </div>
+
+                    {/* 分阶段步骤 */}
+                    <div className="space-y-2">
+                      {PROGRESS_STEPS.map((step, i) => {
+                        const isActive = i === progressStep
+                        const isDone = i < progressStep
+                        return (
+                          <motion.div
+                            key={i}
+                            animate={{
+                              opacity: i <= progressStep ? 1 : 0.35,
+                            }}
+                            className="flex items-center gap-2 text-xs"
+                          >
+                            {isDone ? (
+                              <Check size={12} style={{ color: '#4a8c6f' }} />
+                            ) : isActive ? (
+                              <motion.div
+                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                              >
+                                <i className={`bi ${step.icon}`} style={{ fontSize: 12, color: '#c96442' }} />
+                              </motion.div>
+                            ) : (
+                              <i className={`bi ${step.icon}`} style={{ fontSize: 12, color: '#c4c3bd' }} />
+                            )}
+                            <span style={{ color: isDone ? '#4a8c6f' : isActive ? '#c96442' : '#c4c3bd' }}>
+                              {step.label}
+                              {isActive && '...'}
+                            </span>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+
+                    <p className="text-[10px] mt-3" style={{ color: '#87867f' }}>
+                      AI 引擎处理通常需要 3-10 秒，复杂任务可能更久
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* 错误提示 */}
               {testError && (
@@ -1112,7 +1217,7 @@ export default function SkillStudio() {
   const handleEditSubmit = async (data: Partial<Skill>) => {
     const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/skills/${data.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers,
       body: JSON.stringify({
         title: data.title,
@@ -1134,9 +1239,9 @@ export default function SkillStudio() {
     try {
       const headers = await getAuthHeaders()
       if (isPublished) {
-        // 撤销发布：PUT 更新状态为 draft
+        // 撤销发布：PATCH 更新状态为 draft
         const res = await fetch(`${API_BASE}/skills/${s.id}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers,
           body: JSON.stringify({ status: 'draft' }),
         })

@@ -20,6 +20,7 @@ import certRoutes from './routes/cert.js'
 import leaderboardRoutes from './routes/leaderboard.js'
 import enterpriseRoutes from './routes/enterprise.js'
 import skillsRouter, { codingEventsRouter } from './routes/skills.js'
+import mcpRouter from './mcp-server.js'
 import demoRoutes from './routes/demo.js'
 
 dotenv.config({ override: true })
@@ -46,7 +47,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true)
     } else {
-      callback(null, true) // Permissive in dev; tighten for production
+      callback(new Error(`Origin ${origin} not allowed by CORS`))
     }
   },
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
@@ -99,6 +100,7 @@ app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/enterprise', enterpriseRoutes)
 app.use('/api/skills', skillsRouter)
 app.use('/api/coding-events', codingEventsRouter)
+app.use('/api/mcp', mcpRouter)
 app.use('/api/demo', demoRoutes)
 
 /**

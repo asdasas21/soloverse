@@ -353,10 +353,10 @@ function CandidateDetail({
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>
-                        {t.name || t.trialId || '试炼'}
+                        {t.name || t.trialName || t.trialId || '试炼'}
                       </div>
                       <div className="text-xs" style={{ color: '#87867f' }}>
-                        {t.date || ''} · {t.status || ''}
+                        {t.date || ''} · {t.status === 'evaluated' ? '已完成' : t.status === 'in_progress' ? '进行中' : (t.status || '未知')}
                       </div>
                     </div>
                     {t.score !== undefined && (
@@ -514,12 +514,12 @@ function CreateTrialForm({
             {/* System Prompt */}
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: '#141413' }}>
-                System Prompt（AI 导师设定）
+                评估重点说明（可选）
               </label>
               <textarea
                 value={form.systemPrompt}
                 onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
-                placeholder="定义 AI 导师的人设、提问风格和评估维度..."
+                placeholder="定义试炼的考察重点、难度要求和评分维度偏好..."
                 rows={4}
                 className="w-full px-3 py-2 rounded-lg border text-sm outline-none focus:border-[#c96442] transition-colors resize-none"
                 style={{ background: '#ffffff', borderColor: '#e8e6dc', color: '#141413' }}
@@ -669,13 +669,22 @@ export default function EnterpriseDashboard() {
   const fetchCandidateDetail = useCallback(async (id: string) => {
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${API_BASE}/enterprise/candidates/${id}`, { headers })
+      const res = await fetch(`${API_BASE}/enterprise/profile/${id}`, { headers })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(err.error || `请求失败 (${res.status})`)
       }
       const data = await res.json()
-      setSelectedCandidate(data.data || data)
+      const detail = data.data || data
+      // 合并详情数据到当前候选人，保留列表中已有的基本信息
+      setSelectedCandidate((prev: any) => ({
+        ...prev,
+        ...detail.profile,
+        ...detail.latestEvaluation,
+        trialHistory: detail.trialHistory || [],
+        certificates: detail.certificates || [],
+        stats: detail.stats || {},
+      }))
     } catch (err: any) {
       // 详情获取失败时，使用列表中的数据
       console.warn('[enterprise] 获取候选人详情失败:', err.message)

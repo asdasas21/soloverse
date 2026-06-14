@@ -51,8 +51,9 @@ async function callGLM(
 
 /**
  * 执行 skill — 企业 Agent 调用的核心入口
+ * 根据 protocol.type 分派到不同的执行逻辑
  * 1. 查询用户最新评估（能力画像）
- * 2. 用 GLM 执行 skill 的实际逻辑
+ * 2. 根据 skill 类型构建针对性的 system prompt
  * 3. 返回执行结果 + 评估上下文
  */
 async function invokeSkill(skill: any, input: any, supabaseClient: typeof supabase) {
@@ -65,17 +66,61 @@ async function invokeSkill(skill: any, input: any, supabaseClient: typeof supaba
     .limit(1)
     .maybeSingle()
 
-  // 2. 构建 system prompt，注入协议的输出 schema 和评估维度
   const protocol = skill.protocol || {}
-  const outputSchema = protocol.output_schema || {}
-  const evalDimensions = protocol.evaluation_dimensions || []
+  // 统一读取 schema（兼容 input_schema / output_schema 和旧的 input / output）
+  const inputSchema = protocol.input_schema || protocol.input || {}
+  const outputSchema = protocol.output_schema || protocol.output || {}
+  const skillType = protocol.type || 'generic'
+  const portrait = evaluation?.portrait || {}
 
-  const skillPrompt = `你是一个能力验证 Skill。用户声称具备「${skill.title}」能力。
-根据用户的能力画像：${JSON.stringify(evaluation?.portrait || {})}
-执行以下任务：${skill.description}
-${evalDimensions.length > 0 ? `重点考察维度：${evalDimensions.join(', ')}` : ''}
+  // 2. 根据 skill 类型构建针对性的 system prompt
+  let skillPrompt = ''
+
+  if (skillType === 'code-review') {
+    // 代码审查 Skill
+    const languages = protocol.languages || []
+    const langHint = languages.length > 0 ? `支持的语言：${languages.join('、')}` : '支持所有主流语言'
+    skillPrompt = `你是一个专业的代码审查 Skill。${skill.description}
+${langHint}
+请审查以下代码，检查 bug、安全漏洞、性能问题和代码规范。
+对于每个发现的问题，返回：行号、严重级别(critical/warning/style)、类别、描述。
 输入数据：${JSON.stringify(input)}
-请按照协议定义的输出格式返回结果。输出格式必须符合：${JSON.stringify(outputSchema)}`
+请返回 JSON 格式：{ "issues": [{ "line": number, "severity": "critical|warning|style", "category": "string", "description": "string" }], "summary": "总体评价" }`
+  } else if (skillType === 'resume-parser') {
+    // 简历解析 Skill — 明确告知输入是结构化的简历文本，而非文件
+    skillPrompt = `你是一个简历智能解析 Skill。${skill.description}
+注意：调用方传入的是简历的纯文本内容（已从 PDF/Word 中提取），你无法直接处理二进制文件。
+如果输入的文本内容为空或明显不是简历内容（如只有一个名字），请返回错误提示。
+请从以下简历文本中提取：基本信息（姓名、电话、邮箱）、技能列表、工作经历、教育经历。
+输入数据：${JSON.stringify(input)}
+请返回 JSON 格式：{ "basic": { "name": "string", "phone": "string", "email": "string" }, "skills": ["string"], "experience": [{ "company": "string", "role": "string", "duration": "string", "description": "string" }], "education": [{ "school": "string", "degree": "string", "major": "string", "year": "string" }] }`
+  } else if (skillType === 'interview-gen') {
+    // 面试题生成 Skill
+    const roles = protocol.roles || []
+    const roleHint = roles.length > 0 ? `支持的岗位方向：${roles.join('、')}` : ''
+    skillPrompt = `你是一个面试题生成 Skill。${skill.description}
+${roleHint}
+根据输入的岗位、难度和数量要求，生成有针对性的技术面试题。
+每道题包含：题目、类型、难度、参考答案、评分标准。
+输入数据：${JSON.stringify(input)}
+请返回 JSON 格式：{ "questions": [{ "id": number, "question": "string", "category": "string", "difficulty": "easy|medium|hard", "answer": "string", "scoringCriteria": "string" }] }`
+  } else if (skillType === 'ability-verification') {
+    // 能力验证 Skill（从试炼生成）
+    skillPrompt = `你是一个能力验证 Skill。用户声称具备「${skill.title}」能力。
+根据用户的能力画像：${JSON.stringify(portrait)}
+认证等级：${evaluation?.cert_level || '未认证'}（${evaluation?.cert_score || 0}分）
+执行以下任务：${skill.description}
+输入数据：${JSON.stringify(input)}
+请返回 JSON 格式：{ "applicable": boolean, "confidence": number, "reasoning": "string", "relevantDimensions": {} }`
+  } else {
+    // 通用 Skill — 根据 input/output schema 执行
+    skillPrompt = `你是一个「${skill.title}」Skill。${skill.description}
+${Object.keys(inputSchema).length > 0 ? `输入参数格式：${JSON.stringify(inputSchema)}` : ''}
+${Object.keys(outputSchema).length > 0 ? `输出参数格式：${JSON.stringify(outputSchema)}` : ''}
+根据用户的能力画像：${JSON.stringify(portrait)}
+输入数据：${JSON.stringify(input)}
+请返回符合输出格式的 JSON 结果。`
+  }
 
   // 3. 用 GLM 执行 skill 逻辑
   const result = await callGLM(
@@ -104,7 +149,7 @@ function buildMcpToolDefinition(skill: any) {
   return {
     name: `skill_${skill.id.replace(/-/g, '_').slice(0, 16)}`,
     description: skill.description,
-    inputSchema: protocol.input_schema || {
+    inputSchema: protocol.input_schema || protocol.input || {
       type: 'object',
       properties: {},
     },

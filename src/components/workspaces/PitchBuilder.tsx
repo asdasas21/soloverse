@@ -31,7 +31,18 @@ export default function PitchBuilder({
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   }
 
-  const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length
+  // 字数统计：中文按字符计数，英文按空格分词
+  const wordCount = (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return 0
+    // 匹配中文字符（含全角标点）+ 英文单词
+    const cjk = trimmed.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g)
+    const cjkCount = cjk ? cjk.length : 0
+    // 去掉中文字符后，按空格分词计算英文词数
+    const nonCjk = trimmed.replace(/[\u4e00-\u9fff\u3400-\u4dbf]/g, ' ').trim()
+    const enWords = nonCjk ? nonCjk.split(/\s+/).filter(Boolean).length : 0
+    return cjkCount + enWords
+  }
   const allValid = config.sections.every((s) => wordCount(sections[s.id] || '') >= s.minWords)
   const timeUp = timeLeft === 0 && (config.timeLimit || 0) > 0
 

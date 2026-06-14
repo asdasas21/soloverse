@@ -8,6 +8,7 @@ import {
   generateVerificationCode,
   type Portrait,
 } from '../lib/supabase.js'
+import { getAuthenticatedUserId } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -185,6 +186,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
+  // 鉴权：必须登录
+  const authenticatedUserId = await getAuthenticatedUserId(req)
+  if (!authenticatedUserId) {
+    res.status(401).json({ success: false, error: '需要登录后才能提交评估' })
+    return
+  }
+
   // Load session from Supabase
   const { data: session, error: sessionError } = await supabase
     .from('trial_sessions')
@@ -203,20 +211,17 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
   if (session) {
     userId = session.user_id
+    // 所有权校验：只有 session 的所有者才能提交评估
+    if (userId !== authenticatedUserId) {
+      res.status(403).json({ success: false, error: '无权评估他人的试炼 session' })
+      return
+    }
     // Use accumulated EMA-smoothed scores directly (no turn bonus hack)
     portrait = rowToPortrait(session)
   } else {
-    // Fallback: generate reasonable default scores
-    portrait = {
-      curiosity: 65,
-      reliability: 70,
-      factChecking: 60,
-      diverseThinking: 68,
-      uncertaintyTolerance: 55,
-      lowEgoHighDrive: 72,
-    }
-    // Without a session we cannot identify the user
-    userId = ''
+    // session 不存在时返回 404，不再使用硬编码 fallback
+    res.status(404).json({ success: false, error: 'Session not found' })
+    return
   }
 
   // Compute D1-D5 dimension scores from portrait (for display)

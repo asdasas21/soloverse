@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ── 类型定义 ──
@@ -73,6 +73,7 @@ export default function CodeEditor({ sessionId, language = 'javascript', onChang
     idleMs: 0,
     totalCharsAdded: 0,
   });
+  const [pendingCount, setPendingCount] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const overlayInnerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +91,7 @@ export default function CodeEditor({ sessionId, language = 'javascript', onChang
     if (eventQueue.current.length === 0) return;
     const events = [...eventQueue.current];
     eventQueue.current = [];
+    setPendingCount(0);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -109,6 +111,7 @@ export default function CodeEditor({ sessionId, language = 'javascript', onChang
 
   const queueEvent = useCallback((event: CodingEvent) => {
     eventQueue.current.push({ ...event, occurred_at: new Date().toISOString() });
+    setPendingCount(eventQueue.current.length);
 
     // 5 秒批量上报一次
     if (flushTimer.current) clearTimeout(flushTimer.current);
@@ -232,7 +235,6 @@ export default function CodeEditor({ sessionId, language = 'javascript', onChang
       })();
     };
     // 仅在 sessionId 变化时重新绑定卸载逻辑
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   // ── 滚动同步：高亮层 + 行号 与 textarea 同步 ──
@@ -260,10 +262,11 @@ export default function CodeEditor({ sessionId, language = 'javascript', onChang
     hints.push({ text: '检测到大量粘贴，建议独立思考', tone: 'warn' });
   }
 
-  // 高亮后的 HTML（空内容时显示占位提示）
-  const overlayHtml = code.length === 0
-    ? '<span style="color:#6c7086">// 在此编写代码...</span>'
-    : highlightCode(code, language);
+  // 高亮后的 HTML（useMemo 缓存避免每次按键重新计算）
+  const overlayHtml = useMemo(() => {
+    if (code.length === 0) return '<span style="color:#6c7086">// 在此编写代码...</span>';
+    return highlightCode(code, language);
+  }, [code, language]);
 
   return (
     <div className="flex gap-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -350,7 +353,7 @@ export default function CodeEditor({ sessionId, language = 'javascript', onChang
 
         {/* 底部操作栏 */}
         <div className="flex items-center justify-between px-4 py-2" style={{ borderTop: '1px solid #313244' }}>
-          <span className="text-xs" style={{ color: '#87867f' }}>已记录 {eventQueue.current.length} 条待上报</span>
+          <span className="text-xs" style={{ color: '#87867f' }}>已记录 {pendingCount} 条待上报</span>
           <button
             onClick={handleRunTest}
             className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-transform hover:scale-105"

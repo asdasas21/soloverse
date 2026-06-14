@@ -317,11 +317,11 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     status?: string
   }
 
-  // 校验 status
+  // 校验 status（owner 不能自行设为 verified，需平台审核）
   if (status) {
-    const validStatuses = ['draft', 'published', 'verified', 'revoked']
-    if (!validStatuses.includes(status)) {
-      res.status(400).json({ success: false, error: '无效的 status 值' })
+    const ownerValidStatuses = ['draft', 'published', 'revoked']
+    if (!ownerValidStatuses.includes(status)) {
+      res.status(400).json({ success: false, error: '无效的 status 值（verified 需平台审核）' })
       return
     }
   }
@@ -451,11 +451,19 @@ router.post('/:id/publish', async (req: Request, res: Response): Promise<void> =
 
 /**
  * POST /api/skills/:id/invoke — 企业 Agent 调用 skill（核心功能）
- * 公开接口（企业 Agent 可调用），需要 API key 或 session
+ * 需要认证（API key 或 session）
  * body: { input: any, callerLabel?: string, callerId?: string }
  */
 router.post('/:id/invoke', async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+
+  // 鉴权：调用方必须登录（防止匿名 DoS）
+  const callerUserId = await getAuthenticatedUserId(req)
+  if (!callerUserId) {
+    res.status(401).json({ success: false, error: '调用 skill 需要认证' })
+    return
+  }
+
   const { input, callerLabel, callerId } = req.body as {
     input?: any
     callerLabel?: string
@@ -508,17 +516,22 @@ router.post('/:id/invoke', async (req: Request, res: Response): Promise<void> =>
       console.error('[skills/:id/invoke] log failed:', logError.message)
     }
 
-    // 2. 更新 skill 的调用次数和最后调用时间
+    // 2. 更新 skill 的调用次数和最后调用时间（使用 RPC 原子递增防止竞态）
     const { error: updateError } = await supabase
-      .from('skills')
-      .update({
-        invoke_count: (skill.invoke_count ?? 0) + 1,
-        last_invoked_at: new Date().toISOString(),
-      })
-      .eq('id', id)
+      .rpc('increment_invoke_count', { skill_id: id })
 
     if (updateError) {
-      console.error('[skills/:id/invoke] update invoke_count failed:', updateError.message)
+      // RPC 不存在时 fallback 到直接更新（兼容旧 schema）
+      const { error: fallbackError } = await supabase
+        .from('skills')
+        .update({
+          invoke_count: (skill.invoke_count ?? 0) + 1,
+          last_invoked_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+      if (fallbackError) {
+        console.error('[skills/:id/invoke] update invoke_count failed:', fallbackError.message)
+      }
     }
 
     res.json({
@@ -545,7 +558,7 @@ router.post('/:id/invoke', async (req: Request, res: Response): Promise<void> =>
     })
 
     console.error('[skills/:id/invoke] execution failed:', errMsg)
-    res.status(500).json({ success: false, error: `Skill 执行失败: ${errMsg}` })
+    res.status(500).json({ success: false, error: 'Skill 执行失败，请稍后重试' })
   }
 })
 

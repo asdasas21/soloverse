@@ -1,10 +1,20 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Users, Briefcase, Search, Award, TrendingUp, Plus, X, Filter } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 
 // 企业端 API 基础地址（client.ts 未提供企业端函数，直接用 fetch 调用）
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+
+// 统一获取认证 headers
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
+}
 
 // 六维能力维度配色（参考 AbilityDNA）
 const DIM_COLORS: Record<string, string> = {
@@ -622,7 +632,8 @@ export default function EnterpriseDashboard() {
   // 获取候选人列表
   const fetchCandidates = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/enterprise/candidates`)
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${API_BASE}/enterprise/candidates`, { headers })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(err.error || `请求失败 (${res.status})`)
@@ -639,7 +650,8 @@ export default function EnterpriseDashboard() {
   // 获取定制试炼列表
   const fetchTrials = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/enterprise/trials`)
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${API_BASE}/enterprise/trials`, { headers })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(err.error || `请求失败 (${res.status})`)
@@ -656,7 +668,8 @@ export default function EnterpriseDashboard() {
   // 获取候选人详情
   const fetchCandidateDetail = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/enterprise/candidates/${id}`)
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${API_BASE}/enterprise/candidates/${id}`, { headers })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(err.error || `请求失败 (${res.status})`)
@@ -671,9 +684,10 @@ export default function EnterpriseDashboard() {
 
   // 发布定制试炼
   const handleCreateTrial = useCallback(async (formData: any) => {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/enterprise/trials`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(formData),
     })
     if (!res.ok) {
@@ -697,8 +711,8 @@ export default function EnterpriseDashboard() {
     }
   }, [fetchCandidates, fetchTrials])
 
-  // 筛选后的候选人列表
-  const filteredCandidates = candidates.filter((c) => {
+  // 筛选后的候选人列表（memoize 避免不必要重计算）
+  const filteredCandidates = useMemo(() => candidates.filter((c) => {
     const name = (c.displayName || c.name || '').toLowerCase()
     const matchesSearch = !searchQuery || name.includes(searchQuery.toLowerCase())
     const level = c.certLevel || c.level
@@ -706,7 +720,7 @@ export default function EnterpriseDashboard() {
     const score = c.certScore ?? c.score ?? 0
     const matchesScore = score >= minScore
     return matchesSearch && matchesLevel && matchesScore
-  })
+  }), [candidates, searchQuery, filterLevel, minScore])
 
   // 统计指标
   const totalCandidates = candidates.length
@@ -939,10 +953,8 @@ export default function EnterpriseDashboard() {
             <div className="mb-6">
               <button
                 onClick={() => setShowCreateTrial(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-colors hover:opacity-90"
                 style={{ background: '#c96442' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#d97757')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = '#c96442')}
               >
                 <Plus size={16} /> 发布新试炼
               </button>

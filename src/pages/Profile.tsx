@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Award, BookOpen, Shield, ChevronRight, ArrowLeft, Share2 } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import ShareCard from '@/components/ShareCard';
 import AbilityDNA from '@/components/AbilityDNA';
 import CareerPath from '@/components/CareerPath';
@@ -101,9 +101,17 @@ const dims: Dimension[] = [
 
 export default function Profile() {
   const { id: userId } = useParams<{ id: string }>();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [apiData, setApiData] = useState<any>(null);
   const [showShareCard, setShowShareCard] = useState(false);
+
+  useEffect(() => {
+    if (location.hash === '#reports') {
+      const el = document.getElementById('reports');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [location.hash, loading]);
 
   useEffect(() => {
     if (!userId) { setLoading(false); return; }
@@ -494,6 +502,7 @@ export default function Profile() {
         {/* 增值服务入口 */}
         {hasEvaluation && (
           <motion.div
+            id="reports"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}

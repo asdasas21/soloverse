@@ -80,7 +80,7 @@ export default function Pricing() {
       if (result.paid) {
         show('购买成功！正在生成报告...', 'success')
         // 导航到报告生成页
-        setTimeout(() => navigate(`/profile/${user.id}`), 1500)
+        setTimeout(() => navigate(`/profile/${user.id}#reports`), 1500)
       }
     } catch (e) {
       show(e instanceof Error ? e.message : '支付失败', 'error')

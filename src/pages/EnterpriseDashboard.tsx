@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Users, Briefcase, Search, Award, TrendingUp, Plus, X, Filter } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import Onboarding from '@/components/Onboarding'
 
 // 企业端 API 基础地址（client.ts 未提供企业端函数，直接用 fetch 调用）
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
@@ -762,6 +763,7 @@ export default function EnterpriseDashboard() {
       className="min-h-screen pb-12"
       style={{ background: '#faf9f5', fontFamily: "'DM Sans', sans-serif" }}
     >
+      <Onboarding type="enterprise" />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8">
         {/* 返回首页 + 订阅管理 */}
         <div className="flex items-center justify-between mb-4">

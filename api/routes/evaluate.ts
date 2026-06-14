@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express'
+import rateLimit from 'express-rate-limit'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   rowToPortrait,
@@ -15,6 +16,16 @@ import { logError } from '../lib/logger.js'
 import { runCheatDetection } from '../lib/anticheat.js'
 
 const router = Router()
+
+// Per-user rate limiting for evaluate (applied after auth, so only authenticated requests count)
+const evaluateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: any) => req.userId || req.ip,
+  message: { success: false, error: '提交次数过多，请稍后再试' },
+})
 
 // 维度 key 到中文标签的映射（用于报告生成）
 const DIM_LABELS: Record<string, string> = {
@@ -159,6 +170,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return
   }
   const { client: supabase, userId: authenticatedUserId } = authResult
+  ;(req as any).userId = authenticatedUserId
+
+  // Apply rate limiting per-user (after auth so only authenticated requests count)
+  await new Promise<void>((resolve) => {
+    evaluateLimiter(req, res, () => resolve())
+  })
+  if (res.headersSent) return
 
   // Load session from Supabase
   const { data: session, error: sessionError } = await supabase

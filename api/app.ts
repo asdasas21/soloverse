@@ -50,7 +50,8 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true)
     } else {
-      callback(new Error(`Origin ${origin} not allowed by CORS`))
+      // Don't throw Error — return null so browser handles CORS rejection natively
+      callback(null, false)
     }
   },
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
@@ -104,7 +105,9 @@ const trialActionLimiter = rateLimit({
  */
 app.use('/api/trials', trialRoutes)
 app.use('/api/chat', chatLimiter, chatRoutes)
-app.use('/api/evaluate', evaluateLimiter, evaluateRoutes)
+// evaluateLimiter removed from app-level — auth check happens inside route handler,
+// so unauthenticated requests don't consume the rate limit quota
+app.use('/api/evaluate', evaluateRoutes)
 app.use('/api/trial-actions', trialActionLimiter, trialActionRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/season', seasonRoutes)

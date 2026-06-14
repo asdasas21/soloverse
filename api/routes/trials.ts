@@ -158,7 +158,7 @@ router.post('/:id/start', async (req: Request, res: Response): Promise<void> => 
 
   // Require a user id (for testing phase, from header)
   if (!userId) {
-    res.status(400).json({ success: false, error: '需要登录后才能开始试炼' })
+    res.status(401).json({ success: false, error: '需要登录后才能开始试炼' })
     return
   }
 

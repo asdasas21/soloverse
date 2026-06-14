@@ -27,19 +27,30 @@ const levelLabels: Record<string, string> = {
   C1: '基础级',
 };
 
+const DIMENSIONS = [
+  { key: 'curiosity', label: '好奇心' },
+  { key: 'reliability', label: '靠谱' },
+  { key: 'factChecking', label: '事实洁癖' },
+  { key: 'diverseThinking', label: '多元化思维' },
+  { key: 'uncertaintyTolerance', label: '忍受不确定性' },
+  { key: 'lowEgoHighDrive', label: '低ego高自驱' },
+];
+
 export default function Leaderboard() {
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dimension, setDimension] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAPI<any>('/leaderboard?limit=50')
+    setLoading(true);
+    fetchAPI<any>('/leaderboard?limit=50' + (dimension ? '&dimension=' + dimension : ''))
       .then((res: any) => {
         const data = res.data?.rankings || res.rankings || [];
         setRankings(data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [dimension]);
 
   const top3 = rankings.slice(0, 3);
   const rest = rankings.slice(3);
@@ -61,6 +72,35 @@ export default function Leaderboard() {
             能力排行榜
           </h1>
         </motion.div>
+
+        {/* 维度筛选 */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setDimension(null)}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+            style={{
+              background: dimension === null ? '#c96442' : 'transparent',
+              color: dimension === null ? '#fff' : '#5e5d59',
+              border: `1px solid ${dimension === null ? '#c96442' : '#e8e6dc'}`,
+            }}
+          >
+            综合
+          </button>
+          {DIMENSIONS.map((d) => (
+            <button
+              key={d.key}
+              onClick={() => setDimension(d.key)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+              style={{
+                background: dimension === d.key ? '#c96442' : 'transparent',
+                color: dimension === d.key ? '#fff' : '#5e5d59',
+                border: `1px solid ${dimension === d.key ? '#c96442' : '#e8e6dc'}`,
+              }}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

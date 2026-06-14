@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase, rowToPortrait, portraitToRow, type Portrait } from '../lib/supabase.js'
-import { callGLM } from '../lib/glm.js'
+import { callGLM, callGLMStream } from '../lib/glm.js'
 import { logError } from '../lib/logger.js'
+import { getAuthenticatedUserId } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -214,6 +215,17 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
+  // Auth: verify the session belongs to the authenticated user
+  const authUserId = await getAuthenticatedUserId(req)
+  if (!authUserId) {
+    res.status(401).json({ success: false, error: '请先登录后才能开始对话' })
+    return
+  }
+  if (session.user_id && session.user_id !== authUserId) {
+    res.status(403).json({ success: false, error: '无权访问此会话' })
+    return
+  }
+
   // Build state from DB row
   const messages: Array<{ role: string; content: string }> = Array.isArray(session.messages) ? session.messages : []
   let turnCount: number = session.turn_count ?? 0
@@ -270,13 +282,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   })
   res.flushHeaders()
 
-  // Step 1: Get agent reply from GLM
+  // Step 1: Stream agent reply from GLM token-by-token
   let agentReply: string
   try {
-    agentReply = await callGLM(glmMessages)
+    agentReply = await callGLMStream(glmMessages, (token: string) => {
+      // Stream each token as an SSE event immediately
+      res.write(`data: ${JSON.stringify({ type: 'token', content: token })}\n\n`)
+    })
   } catch (err) {
     logError('chat', 'GLM conversation failed', { error: String(err) })
     agentReply = fallbackResponse(message)
+    // Send fallback as streamed tokens
+    for (const char of agentReply) {
+      res.write(`data: ${JSON.stringify({ type: 'token', content: char })}\n\n`)
+    }
   }
 
   // Add assistant reply to history
@@ -313,20 +332,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     logError('chat', 'session update failed', { error: updateError.message })
   }
 
-  // Build SSE events
-  const events: string[] = []
-
-  // Send each character as a token event
-  for (const char of agentReply) {
-    events.push(`data: ${JSON.stringify({ type: 'token', content: char })}\n\n`)
-  }
-
   // Send evaluation event
-  events.push(`data: ${JSON.stringify({ type: 'evaluation', ...scores })}\n\n`)
+  res.write(`data: ${JSON.stringify({ type: 'evaluation', ...scores })}\n\n`)
 
-  events.push(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+  // Send done event
+  res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
 
-  res.end(events.join(''))
+  res.end()
 })
 
 export default router

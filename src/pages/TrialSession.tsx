@@ -68,6 +68,7 @@ export default function TrialSession() {
   const [submitting, setSubmitting] = useState(false);
   const [evaluation, setEvaluation] = useState<any>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   const scenarios = id ? getTrialScenarios(id) : [];
@@ -79,7 +80,7 @@ export default function TrialSession() {
     let cancelled = false;
     getTrial(id).then((res: any) => {
       if (!cancelled) setTrialData(res.data || res);
-    }).catch(() => {});
+    }).catch(() => { if (!cancelled) setLoadError('试炼加载失败，请返回重试'); });
 
     // 创建 session
     import("@/api/client").then(({ startTrial }) => {
@@ -87,7 +88,7 @@ export default function TrialSession() {
         if (cancelled) return;
         const data = res.data || res;
         if (data.sessionId) setSessionId(data.sessionId);
-      }).catch(() => {});
+      }).catch(() => { if (!cancelled) setLoadError('创建试炼会话失败，请稍后重试'); });
     });
 
     return () => { cancelled = true; };
@@ -125,7 +126,6 @@ export default function TrialSession() {
       } catch (_e) {
         // 后端评估失败时，使用本地 fallback（降级体验）
         console.warn('Server evaluation failed, using local fallback')
-        const newScores = { ...scores }
         let qualityScore = 60
         if (actionData.weight !== undefined) qualityScore = 40 + (actionData.weight / 5) * 50
         else if (actionData.findings) qualityScore = Math.min(90, 40 + actionData.findings.length * 10)
@@ -134,10 +134,13 @@ export default function TrialSession() {
         else if (actionData.sections) qualityScore = Math.min(88, 45 + Number(Object.values(actionData.sections).reduce((s: number, v: any) => s + String(v).length, 0)) / 20)
         qualityScore = Math.max(30, Math.min(90, qualityScore))
         const EMA_ALPHA = 0.3
-        scenario.focusDimensions.forEach((dim) => {
-          newScores[dim] = Math.round(EMA_ALPHA * qualityScore + (1 - EMA_ALPHA) * newScores[dim])
+        setScores(prev => {
+          const updated = { ...prev }
+          scenario.focusDimensions.forEach((dim) => {
+            updated[dim] = Math.round(EMA_ALPHA * qualityScore + (1 - EMA_ALPHA) * (updated[dim] || 50))
+          })
+          return updated
         })
-        setScores(newScores)
       }
     }
   };
@@ -167,7 +170,10 @@ export default function TrialSession() {
   };
 
   const handleSubmit = async () => {
-    if (submitting || !sessionId) return;
+    if (submitting || !sessionId) {
+      if (!sessionId) setLoadError('会话未创建，请刷新页面重试')
+      return;
+    }
     setSubmitting(true);
     try {
       const { submitEvaluation } = await import("@/api/client");
@@ -180,6 +186,23 @@ export default function TrialSession() {
       setSubmitting(false);
     }
   };
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#f5f4ed" }}>
+        <div className="text-center">
+          <p className="text-sm mb-4" style={{ color: "#dc2626" }}>{loadError}</p>
+          <button
+            onClick={() => navigate("/trials")}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ background: "#c96442" }}
+          >
+            返回试炼列表
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!trialData || !currentScenario) {
     return (

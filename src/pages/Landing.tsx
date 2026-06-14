@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Swords, Code, Award, LogOut, TrendingUp, ShieldCheck, Brain } from 'lucide-react';
+import { Swords, Code, Award, LogOut, TrendingUp, ShieldCheck, Brain, Target, Eye, Zap, GitBranch, Users, FileCheck, BarChart3, Layers, Wrench, ArrowRight, CheckCircle2 } from 'lucide-react';
 import CountUp from '@/components/CountUp';
+import Onboarding from '@/components/Onboarding';
 import { useAuthStore } from '@/store/authStore';
 
 // Nav auth button
@@ -84,6 +85,57 @@ const steps = [
   },
 ];
 
+const workspaceTypes = [
+  {
+    icon: Target,
+    title: '决策模拟',
+    desc: '面对线上故障、需求变更等真实工程突发事件，做出关键决策。AI 会评估你的判断力、风险意识和优先级排序能力。',
+    tags: ['危机响应', '权衡取舍', '风险预判'],
+  },
+  {
+    icon: Eye,
+    title: '代码审查台',
+    desc: '审查真实生产代码中的 diff，点击行号标注问题。AI 静默观察你发现问题的方式和深度——是浮于表面还是直击根因。',
+    tags: ['Bug 发现', '安全意识', '工程素养'],
+  },
+  {
+    icon: Layers,
+    title: '架构设计画板',
+    desc: '拖拽组件、连线、画架构图。从单体到微服务，从同步到事件驱动，AI 会追问每一个设计决策背后的思考过程。',
+    tags: ['系统设计', '技术选型', '扩展性'],
+  },
+  {
+    icon: Code,
+    title: '代码编辑器',
+    desc: '直接在浏览器中写代码。AI 会观察你的编码习惯——是否先写测试、变量命名是否清晰、是否考虑边界情况。',
+    tags: ['编码实战', '代码质量', '工程规范'],
+  },
+  {
+    icon: Zap,
+    title: '路演构建器',
+    desc: '结构化填空构建你的项目路演。从问题定义到技术方案，从里程碑到风险评估，AI 评估你的表达能力和全局视野。',
+    tags: ['结构化表达', '项目叙事', '商业思维'],
+  },
+];
+
+const dimensions = [
+  { key: 'curiosity', label: '好奇心', icon: Brain, desc: '主动提问、深度追问、跨领域探索' },
+  { key: 'reliability', label: '靠谱', icon: ShieldCheck, desc: '按时交付、承诺兑现、质量稳定' },
+  { key: 'factChecking', label: '事实洁癖', icon: FileCheck, desc: '溯源验证、数据驱动、辨伪求真' },
+  { key: 'diverseThinking', label: '多元化思维', icon: GitBranch, desc: '多角度分析、包容异见、创新方案' },
+  { key: 'uncertaintyTolerance', label: '忍受不确定性', icon: Target, desc: '拥抱模糊、快速试错、从容应对' },
+  { key: 'lowEgoHighDrive', label: '低 ego 高自驱', icon: TrendingUp, desc: '虚心接受反馈、持续精进、目标导向' },
+];
+
+const fullFlow = [
+  { phase: '01', title: '选择试炼场景', desc: '从 7 大真实工程场景中选择适合的试炼，包括黑客松、代码审查、系统设计、故障排查、API 设计等。', icon: Target },
+  { phase: '02', title: '进入多阶段工作区', desc: '每个试炼包含 2-4 个递进式场景事件。你将在不同工作区类型中操作——做决策、写代码、审查 diff、画架构图。', icon: Layers },
+  { phase: '03', title: 'AI 全程静默采集', desc: '你的每一个操作——点击了哪个选项、审查了哪几行代码、用了多长时间——都被 AI 记录并分析。不是问你"你会不会"，而是看你"怎么做"。', icon: Eye },
+  { phase: '04', title: '渐进式 EMA 评分', desc: '指数移动平均算法动态融合你的每一次行为数据。近期表现权重更高，隐式行为事件以低权重叠加，最终生成稳定的能力画像。', icon: BarChart3 },
+  { phase: '05', title: '生成能力 DNA + 证书', desc: '六维能力分数综合后，达标即可获得 C1/C2/C3 认证证书。每张证书有唯一验证码，企业可在线验真。', icon: Award },
+  { phase: '06', title: '进入任务广场', desc: '用你的认证 + 能力 DNA 申请真实项目任务。企业发布的任务有明确报酬，交付后双方互评，形成不可伪造的能力证明链。', icon: Users },
+];
+
 const stats = [
   { target: 12, suffix: 'x', label: 'AI 岗位增速（vs 传统岗位）', source: 'LinkedIn 2025' },
   { target: 500, suffix: '万+', label: '全球 AI 人才缺口', source: 'McKinsey' },
@@ -133,6 +185,7 @@ const css = `
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40);
@@ -261,6 +314,45 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Workspace Types */}
+      <section className="py-24 px-6">
+        <div className="max-w-5xl mx-auto">
+          <motion.div className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+            <div className="inline-flex items-center gap-2 mb-3">
+              <Wrench size={20} style={{ color: '#c96442' }} />
+              <span className="text-sm font-medium" style={{ color: '#c96442' }}>五种工作区</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: '#141413', fontFamily: "'Playfair Display', serif" }}>
+              不是考试，是真实工程操作
+            </h2>
+            <p className="text-base max-w-xl mx-auto" style={{ color: '#87867f' }}>
+              每种工作区模拟一种真实的工程场景。你的操作方式，比你的答案更能说明问题
+            </p>
+          </motion.div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {workspaceTypes.map((ws, i) => (
+              <motion.div key={ws.title}
+                className="rounded-2xl p-6 transition-all hover:-translate-y-1"
+                style={{ background: '#faf9f5', border: '1px solid #e8e6dc' }}
+                initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.1 }}>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: 'rgba(201,100,66,0.08)' }}>
+                  <ws.icon size={18} style={{ color: '#c96442' }} />
+                </div>
+                <h3 className="text-base font-semibold mb-2" style={{ color: '#141413' }}>{ws.title}</h3>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: '#5e5d59' }}>{ws.desc}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ws.tags.map(t => (
+                    <span key={t} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(201,100,66,0.06)', color: '#c96442' }}>{t}</span>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Stats / Market */}
       <section id="stats" className="py-24 px-6" style={{ background: '#faf9f5' }}>
         <div className="max-w-4xl mx-auto">
@@ -282,6 +374,89 @@ export default function Landing() {
                 <CountUp target={stat.target} suffix={stat.suffix} />
                 <p className="mt-3 text-sm font-medium" style={{ color: '#5e5d59' }}>{stat.label}</p>
                 <p className="mt-1 text-xs" style={{ color: '#b0afa7' }}>{stat.source}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Six Dimensions */}
+      <section className="py-24 px-6">
+        <div className="max-w-5xl mx-auto">
+          <motion.div className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+            <div className="inline-flex items-center gap-2 mb-3">
+              <BarChart3 size={20} style={{ color: '#c96442' }} />
+              <span className="text-sm font-medium" style={{ color: '#c96442' }}>六维能力模型</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: '#141413', fontFamily: "'Playfair Display', serif" }}>
+              六个维度，定义一个工程师
+            </h2>
+            <p className="text-base max-w-xl mx-auto" style={{ color: '#87867f' }}>
+              不是单一分数，而是六维能力 DNA。每个维度都有行为锚点，AI 从真实操作中提取
+            </p>
+          </motion.div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {dimensions.map((dim, i) => (
+              <motion.div key={dim.key}
+                className="flex items-start gap-4 rounded-xl p-5"
+                style={{ background: '#faf9f5', border: '1px solid #e8e6dc' }}
+                initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }} whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.08 }}>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(201,100,66,0.08)' }}>
+                  <dim.icon size={18} style={{ color: '#c96442' }} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-1" style={{ color: '#141413' }}>{dim.label}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: '#87867f' }}>{dim.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Full Flow */}
+      <section className="py-24 px-6" style={{ background: '#faf9f5' }}>
+        <div className="max-w-4xl mx-auto">
+          <motion.div className="text-center mb-16"
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+            <div className="inline-flex items-center gap-2 mb-3">
+              <GitBranch size={20} style={{ color: '#c96442' }} />
+              <span className="text-sm font-medium" style={{ color: '#c96442' }}>完整链路</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: '#141413', fontFamily: "'Playfair Display', serif" }}>
+              从试炼到真实项目，六步走完
+            </h2>
+            <p className="text-base" style={{ color: '#87867f' }}>
+              每一步都有 AI 陪伴，全程透明可追溯
+            </p>
+          </motion.div>
+          <div className="space-y-4">
+            {fullFlow.map((step, i) => (
+              <motion.div key={step.phase}
+                className="flex items-start gap-5 rounded-2xl p-5"
+                style={{ background: '#f5f4ed', border: '1px solid #e8e6dc' }}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.08 }}>
+                <div className="flex flex-col items-center shrink-0">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(201,100,66,0.08)' }}>
+                    <step.icon size={20} style={{ color: '#c96442' }} />
+                  </div>
+                  {i < fullFlow.length - 1 && (
+                    <div className="w-px h-8 mt-2" style={{ background: '#e8e6dc' }} />
+                  )}
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono" style={{ color: '#c96442' }}>{step.phase}</span>
+                    <h3 className="text-base font-semibold" style={{ color: '#141413' }}>{step.title}</h3>
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: '#5e5d59' }}>{step.desc}</p>
+                </div>
+                {i === fullFlow.length - 1 && (
+                  <CheckCircle2 size={20} className="shrink-0 mt-2" style={{ color: '#4a8c6f' }} />
+                )}
               </motion.div>
             ))}
           </div>
@@ -311,6 +486,9 @@ export default function Landing() {
           </div>
         </motion.div>
       </section>
+
+      {/* Onboarding for first-time users */}
+      {user && <Onboarding />}
 
       {/* Footer */}
       <footer className="py-12 px-6 border-t" style={{ borderColor: '#e8e6dc', background: '#f5f4ed' }}>

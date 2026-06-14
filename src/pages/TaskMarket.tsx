@@ -31,6 +31,7 @@ export default function TaskMarket() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [applying, setApplying] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'discover' | 'mine' | 'created'>(isEnterprise ? 'created' : 'discover')
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -58,11 +59,15 @@ export default function TaskMarket() {
   useEffect(() => { loadData() }, [loadData])
 
   const handleApply = async (taskId: string) => {
+    if (applying) return
+    setApplying(taskId)
     try {
       await applyForTask(taskId, '我对这个任务很感兴趣，希望能参与协作。')
       show('申请已提交！', 'success')
     } catch (e) {
       show(e instanceof Error ? e.message : '申请失败', 'error')
+    } finally {
+      setApplying(null)
     }
   }
 
@@ -196,10 +201,11 @@ export default function TaskMarket() {
                   {activeTab === 'discover' && task.status === 'open' && (
                     <button
                       onClick={() => handleApply(task.id)}
-                      className="inline-flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+                      disabled={applying === task.id}
+                      className="inline-flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
                       style={{ background: '#4a8c6f', color: '#fff' }}
                     >
-                      申请任务 <ChevronRight size={14} />
+                      {applying === task.id ? '提交中...' : '申请任务'} <ChevronRight size={14} />
                     </button>
                   )}
                   {(activeTab === 'mine' || activeTab === 'created') && (

@@ -45,6 +45,10 @@ const TOOLS = [
           type: 'string',
           description: '证书编号，格式 TX-YYYY-LX-XXXXX',
         },
+        certNumber: {
+          type: 'string',
+          description: '证书编号（certId 的别名，两者传其一即可）',
+        },
       },
       required: ['certId'],
     },
@@ -81,6 +85,11 @@ const TOOLS = [
       properties: {
         minScore: { type: 'number', description: '最低综合分' },
         certLevel: { type: 'string', description: '认证等级 C1/C2/C3' },
+        minCertLevel: {
+          type: 'string',
+          enum: ['C1', 'C2', 'C3'],
+          description: '最低认证等级（certLevel 的别名，表示该等级及以上）',
+        },
         dimension: {
           type: 'string',
           enum: [
@@ -118,7 +127,7 @@ const TOOLS = [
   },
   {
     name: 'get_leaderboard',
-    description: '获取 TalentX 能力排行榜，按综合分降序返回排名',
+    description: '获取 TalentX 能力排行榜，按综合分或指定维度降序返回排名',
     inputSchema: {
       type: 'object',
       properties: {
@@ -126,6 +135,18 @@ const TOOLS = [
           type: 'number',
           description: '返回数量上限（默认 20，最大 100）',
           default: 20,
+        },
+        dimension: {
+          type: 'string',
+          enum: [
+            'curiosity',
+            'reliability',
+            'factChecking',
+            'diverseThinking',
+            'uncertaintyTolerance',
+            'lowEgoHighDrive',
+          ],
+          description: '按指定能力维度排序（不传则按综合分排序）',
         },
       },
     },
@@ -577,7 +598,7 @@ async function getCodingBehavior(userId: string) {
  * 获取能力排行榜
  * 按综合分降序返回，每个用户只取最高分
  */
-async function getLeaderboard(limit: number = 20) {
+async function getLeaderboard(limit: number = 20, dimension?: string) {
   const safeLimit = Math.min(Math.max(limit || 20, 1), 100)
 
   const { data: evals, error } = await supabase
@@ -593,7 +614,7 @@ async function getLeaderboard(limit: number = 20) {
     `
     )
     .order('cert_score', { ascending: false })
-    .limit(safeLimit * 2) // 取多一些以便去重后仍够数
+    .limit(safeLimit * 3) // 取多一些以便去重后仍够数
 
   if (error) {
     throw new Error(`查询排行榜失败: ${error.message}`)
@@ -601,26 +622,48 @@ async function getLeaderboard(limit: number = 20) {
 
   // 每个用户只取最高分的一条
   const seen = new Set<string>()
-  const rankings = (evals ?? [])
+  let rankings: any[] = (evals ?? [])
     .filter((e: any) => {
       if (seen.has(e.user_id)) return false
       seen.add(e.user_id)
       return true
     })
-    .slice(0, safeLimit)
-    .map((e: any, i: number) => ({
-      rank: i + 1,
+    .map((e: any) => ({
       userId: e.user_id,
       displayName: e.profiles?.display_name || '匿名用户',
       avatarUrl: e.profiles?.avatar_url,
       title: e.profiles?.title || '',
       certScore: Number(e.cert_score),
       certLevel: e.cert_level,
+      portrait: e.portrait,
       evaluatedAt: (e.created_at as string)?.slice(0, 10),
     }))
 
+  // If dimension filter is requested, re-sort by that dimension
+  const VALID_DIMENSIONS = [
+    'curiosity', 'reliability', 'factChecking',
+    'diverseThinking', 'uncertaintyTolerance', 'lowEgoHighDrive',
+  ]
+  if (dimension && VALID_DIMENSIONS.includes(dimension)) {
+    rankings = rankings
+      .map((r: any) => ({ ...r, dimensionScore: r.portrait?.[dimension] ?? 0 }))
+      .sort((a: any, b: any) => b.dimensionScore - a.dimensionScore)
+  }
+
+  rankings = rankings.slice(0, safeLimit).map((r: any, i: number) => ({
+    rank: i + 1,
+    userId: r.userId,
+    displayName: r.displayName,
+    avatarUrl: r.avatarUrl,
+    title: r.title,
+    certScore: dimension && VALID_DIMENSIONS.includes(dimension) ? r.dimensionScore : r.certScore,
+    certLevel: r.certLevel,
+    evaluatedAt: r.evaluatedAt,
+  }))
+
   return {
     total: rankings.length,
+    dimension: dimension || null,
     rankings,
   }
 }
@@ -636,8 +679,13 @@ async function handleToolCall(
     case 'get_user_profile':
       return getUserProfile(args.userId as string)
 
-    case 'verify_certificate':
-      return verifyCertificate(args.certId as string)
+    case 'verify_certificate': {
+      const certId = (args.certId as string) || (args.certNumber as string)
+      if (!certId) {
+        return { valid: false, message: '缺少证书编号参数（certId 或 certNumber）' }
+      }
+      return verifyCertificate(certId)
+    }
 
     case 'get_user_skills':
       return getUserSkills(args.userId as string)
@@ -652,7 +700,7 @@ async function handleToolCall(
     case 'search_talent':
       return searchTalent({
         minScore: args.minScore as number | undefined,
-        certLevel: args.certLevel as string | undefined,
+        certLevel: (args.certLevel as string) || (args.minCertLevel as string),
         dimension: args.dimension as string | undefined,
         minDimensionScore: args.minDimensionScore as number | undefined,
         limit: args.limit as number | undefined,
@@ -663,7 +711,8 @@ async function handleToolCall(
 
     case 'get_leaderboard':
       return getLeaderboard(
-        typeof args.limit === 'number' ? args.limit : 20
+        typeof args.limit === 'number' ? args.limit : 20,
+        args.dimension as string | undefined
       )
 
     default:

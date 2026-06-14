@@ -52,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: data.user, profile, loading: false, isEnterprise: profile?.role === 'enterprise' })
       localStorage.setItem('talentx_user_id', data.user.id)
     }
+    set({ loading: false })
     return { error: null }
   },
 
@@ -77,6 +78,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: data.user, profile, loading: false, isEnterprise: profile?.role === 'enterprise' })
       localStorage.setItem('talentx_user_id', data.user.id)
     }
+    set({ loading: false })
     return { error: null }
   },
 

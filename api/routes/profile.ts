@@ -14,9 +14,35 @@ function calculateFreshness(lastEvalDate: string | null): { score: number; label
   return { score: 30, label: '过期', color: '#c96442' }
 }
 
-/** GET /api/profile/:id */
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
-  const userId = req.params.id
+/** GET /api/profile/me — 获取当前登录用户的 profile */
+router.get('/me', async (req: Request, res: Response): Promise<void> => {
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ success: false, error: '请先登录' })
+    return
+  }
+  const token = authHeader.slice(7)
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const adminUrl = process.env.SUPABASE_URL || ''
+    const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const admin = createClient(adminUrl, adminKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const { data: { user } } = await admin.auth.getUser(token)
+    if (!user?.id) {
+      res.status(401).json({ success: false, error: '请先登录' })
+      return
+    }
+    // Redirect to the same handler with the actual user ID
+    req.params.id = user.id
+    // Fall through to the /:id handler by calling it
+    handleProfileById(req, res, user.id)
+  } catch {
+    res.status(401).json({ success: false, error: '请先登录' })
+  }
+})
+
+/** Shared profile handler */
+async function handleProfileById(req: Request, res: Response, userId: string): Promise<void> {
 
   // 1. Fetch profile basic info
   const { data: profile, error: profileError } = await supabase
@@ -36,12 +62,12 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
-  // 2. Fetch latest evaluation (portrait)
+  // 2. Fetch latest evaluation (portrait) — use highest score for consistency with leaderboard
   const { data: evaluation, error: evalError } = await supabase
     .from('evaluations')
     .select('portrait, cert_score, cert_level, trial_id, created_at')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+    .order('cert_score', { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -140,6 +166,20 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       abilityFreshness: calculateFreshness(evaluation ? (evaluation.created_at as string) : null),
     },
   })
+}
+
+/** GET /api/profile/:id */
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+  const userId = req.params.id
+
+  // UUID format validation
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(userId)) {
+    res.status(400).json({ success: false, error: '无效的用户 ID 格式' })
+    return
+  }
+
+  await handleProfileById(req, res, userId)
 })
 
 export default router

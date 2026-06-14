@@ -28,7 +28,13 @@ export default function Auth() {
       ? await signIn(email, password)
       : await signUp(email, password, username)
     if (result.error) {
-      setError(result.error)
+      const msg = result.error
+      let cnMsg = msg
+      if (msg.includes('Invalid login credentials')) cnMsg = '邮箱或密码错误'
+      else if (msg.includes('Email not confirmed')) cnMsg = '邮箱未验证，请检查邮箱'
+      else if (msg.includes('User already registered')) cnMsg = '该邮箱已注册'
+      else if (msg.includes('Password should be at least')) cnMsg = '密码至少需要 6 位'
+      setError(cnMsg)
     }
   }
 

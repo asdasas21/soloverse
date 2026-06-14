@@ -66,6 +66,7 @@ export default function TrialSession() {
   const [showPanel, setShowPanel] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [evaluation, setEvaluation] = useState<any>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   const scenarios = id ? getTrialScenarios(id) : [];
@@ -172,13 +173,9 @@ export default function TrialSession() {
       const { submitEvaluation } = await import("@/api/client");
       const result = await submitEvaluation({ sessionId, trialId: id });
       setEvaluation(result.data || result);
-    } catch {
-      setEvaluation({
-        portrait: scores,
-        certScore: Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / 6),
-        certification: { level: 'C2', certScore: Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / 6) },
-        report: { summary: '评估完成', strengths: [], improvements: [] },
-      });
+    } catch (err: any) {
+      // API 失败时显示错误，不再静默使用假数据
+      setSubmitError(err?.message || '评估提交失败，请检查网络或稍后重试');
     } finally {
       setSubmitting(false);
     }
@@ -358,6 +355,11 @@ export default function TrialSession() {
                     >
                       {submitting ? "生成评估中..." : "提交评估"} <ChevronRight size={16} />
                     </button>
+                    {submitError && (
+                      <div className="mt-3 px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(220,38,38,0.08)", color: "#dc2626" }}>
+                        {submitError}
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -387,6 +389,67 @@ export default function TrialSession() {
                         </div>
                       ))}
                     </div>
+                    {/* AI 评估报告：亮点 + 改进建议 */}
+                    {evaluation.report && (
+                      <div className="mb-4 space-y-3">
+                        {evaluation.report.summary && (
+                          <p className="text-sm" style={{ color: "#5e5d59" }}>{evaluation.report.summary}</p>
+                        )}
+                        {evaluation.report.strengths?.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold mb-1.5" style={{ color: "#4a8c6f" }}>亮点</div>
+                            <ul className="space-y-1">
+                              {evaluation.report.strengths.map((s: string, i: number) => (
+                                <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: "#5e5d59" }}>
+                                  <span style={{ color: "#4a8c6f" }}>+</span> {s}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {evaluation.report.improvements?.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold mb-1.5" style={{ color: "#c96442" }}>改进建议</div>
+                            <ul className="space-y-1">
+                              {evaluation.report.improvements.map((s: string, i: number) => (
+                                <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: "#5e5d59" }}>
+                                  <span style={{ color: "#c96442" }}>→</span> {s}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* 未达标时基于六维短板生成建议 */}
+                    {evaluation.certification && !evaluation.certification.level && evaluation.portrait && (() => {
+                      const sorted = Object.entries(evaluation.portrait).sort((a: any, b: any) => a[1] - b[1]);
+                      const weakest = sorted.slice(0, 2);
+                      const SUGGESTIONS: Record<string, string> = {
+                        curiosity: '在试炼中主动探索更多技术方案，展现对未知领域的好奇心',
+                        reliability: '注意任务完成的可靠性和一致性，确保承诺的事项按时交付',
+                        factChecking: '加强事实核查习惯，在决策前验证信息来源的可靠性',
+                        diverseThinking: '尝试从不同角度分析问题，展现更多元化的思维方式',
+                        uncertaintyTolerance: '在不确定的场景中保持冷静，提高对模糊性的容忍度',
+                        lowEgoHighDrive: '展现更强的自驱力，主动推进任务而非等待指令',
+                      };
+                      return (
+                        <div className="mb-4">
+                          <div className="text-xs font-semibold mb-1.5" style={{ color: "#c96442" }}>提升方向</div>
+                          <ul className="space-y-1">
+                            {weakest.map(([dim, score]: any) => (
+                              <li key={dim} className="text-xs flex items-start gap-1.5" style={{ color: "#5e5d59" }}>
+                                <span style={{ color: "#c96442" }}>→</span>
+                                <span><b>{DIM_LABELS[dim] || dim}</b>（{score}分）：{SUGGESTIONS[dim] || '继续加强此维度'}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-[10px] mt-2" style={{ color: "#87867f" }}>
+                            综合分未达 60 分（C1 认证门槛），建议针对薄弱维度加强练习后重新挑战。
+                          </p>
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center justify-between">
                       <span className="text-sm" style={{ color: "#5e5d59" }}>
                         综合分 <span className="font-bold text-lg" style={{ color: "#c96442" }}>{evaluation.certification?.certScore ?? evaluation.certScore ?? "—"}</span>

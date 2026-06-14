@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Award, Printer, Share2, ShieldCheck, AlertCircle, ArrowLeft, Loader2, Image } from 'lucide-react';
+import QRCode from 'qrcode';
 import { getCertificate } from '@/api/client';
 import ShareCard from '@/components/ShareCard';
 
@@ -65,6 +66,19 @@ export default function Certificate() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
+  // 生成验证二维码
+  useEffect(() => {
+    if (!cert) return;
+    const verifyUrl = `${window.location.origin}/cert/${cert.id || id}`;
+    QRCode.toDataURL(verifyUrl, {
+      width: 160,
+      margin: 1,
+      color: { dark: '#141413', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    }).then(setQrDataUrl).catch(() => {});
+  }, [cert, id]);
 
   useEffect(() => {
     if (!id) return;
@@ -172,6 +186,12 @@ export default function Certificate() {
               <div className="text-left">
                 <div>签发日期：{formatDate(cert.issuedAt)}</div>
                 <div className="mt-1 font-mono">编号：{cert.id}</div>
+                {qrDataUrl && (
+                  <div className="mt-3 flex flex-col items-start gap-1">
+                    <img src={qrDataUrl} alt="验证二维码" width={80} height={80} className="rounded" />
+                    <span className="text-[10px]">扫码验证真伪</span>
+                  </div>
+                )}
               </div>
               <div className="text-right">
                 <div className="font-medium text-[#5e5d59]">TalentX 认证委员会</div>

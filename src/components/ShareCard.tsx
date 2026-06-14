@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Download, X, Share2 } from 'lucide-react';
+import QRCode from 'qrcode';
 
 // 六维能力标签
 const DIM_LABELS = {
@@ -117,6 +118,18 @@ export default function ShareCard({
   onClose,
 }: ShareCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
+  // 生成验证二维码
+  useEffect(() => {
+    const verifyUrl = `${window.location.origin}/profile`;
+    QRCode.toDataURL(verifyUrl, {
+      width: 260,
+      margin: 1,
+      color: { dark: '#141413', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    }).then(setQrDataUrl).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -269,51 +282,28 @@ export default function ShareCard({
     ctx.fillStyle = '#87867f';
     ctx.fillText('/ 100', 80 + bigScoreWidth + 12, 1160);
 
-    // 二维码占位区域
+    // 二维码区域（真实 QR 码）
     const qrSize = 130;
     const qrX = W - 80 - qrSize;
     const qrY = 1050;
-    // 二维码边框
-    ctx.strokeStyle = '#141413';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(qrX, qrY, qrSize, qrSize);
-    // 模拟二维码图案
-    ctx.fillStyle = '#141413';
-    const cell = qrSize / 10;
-    const pattern = [
-      [1, 1, 1, 1, 1, 1, 1, 0, 1, 0],
-      [1, 0, 0, 0, 0, 0, 1, 0, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
-      [1, 0, 1, 1, 0, 0, 1, 0, 1, 0],
-      [1, 0, 0, 0, 1, 1, 1, 0, 0, 1],
-      [1, 1, 1, 0, 1, 0, 0, 1, 1, 0],
-      [0, 0, 1, 1, 0, 1, 1, 0, 0, 1],
-      [1, 1, 0, 0, 1, 0, 0, 1, 0, 1],
-      [0, 1, 1, 1, 0, 1, 1, 0, 1, 0],
-      [1, 0, 0, 1, 1, 0, 1, 1, 0, 1],
-    ];
-    for (let row = 0; row < 10; row++) {
-      for (let col = 0; col < 10; col++) {
-        if (pattern[row][col]) {
-          ctx.fillRect(qrX + col * cell, qrY + row * cell, cell, cell);
-        }
-      }
+
+    // 绘制真实二维码到 canvas
+    if (qrDataUrl) {
+      const qrImg = new Image();
+      qrImg.onload = () => {
+        ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+      };
+      qrImg.src = qrDataUrl;
+    } else {
+      // fallback：绘制占位框
+      ctx.strokeStyle = '#e8e6dc';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(qrX, qrY, qrSize, qrSize);
+      ctx.fillStyle = '#87867f';
+      ctx.font = "400 16px 'DM Sans', sans-serif";
+      ctx.textAlign = 'center';
+      ctx.fillText('QR', qrX + qrSize / 2, qrY + qrSize / 2);
     }
-    // 三个定位角
-    const drawCorner = (x: number, y: number) => {
-      ctx.fillStyle = '#faf9f5';
-      ctx.fillRect(x, y, cell * 3, cell * 3);
-      ctx.fillStyle = '#141413';
-      ctx.fillRect(x, y, cell * 3, cell);
-      ctx.fillRect(x, y, cell, cell * 3);
-      ctx.fillRect(x + cell * 2, y, cell, cell * 3);
-      ctx.fillRect(x, y + cell * 2, cell * 3, cell);
-      ctx.fillStyle = '#141413';
-      ctx.fillRect(x + cell, y + cell, cell, cell);
-    };
-    drawCorner(qrX, qrY);
-    drawCorner(qrX + cell * 7, qrY);
-    drawCorner(qrX, qrY + cell * 7);
 
     // 扫码提示文字
     ctx.font = "500 20px 'DM Sans', 'Helvetica Neue', Arial, sans-serif";
@@ -326,7 +316,7 @@ export default function ShareCard({
     ctx.font = "400 18px 'DM Sans', 'Helvetica Neue', Arial, sans-serif";
     ctx.fillStyle = '#87867f';
     ctx.fillText('TalentX · 重新定义人才评估', 80, H - 60);
-  }, [userName, certLevel, certScore, portrait]);
+  }, [userName, certLevel, certScore, portrait, qrDataUrl]);
 
   // 下载分享卡片为 PNG
   const handleDownload = () => {

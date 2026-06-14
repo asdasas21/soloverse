@@ -625,6 +625,8 @@ export default function EnterpriseDashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterLevel, setFilterLevel] = useState<string>('')
   const [minScore, setMinScore] = useState<number>(0)
+  const [filterDim, setFilterDim] = useState<string>('')
+  const [minDimScore, setMinDimScore] = useState<number>(0)
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null)
   const [showCreateTrial, setShowCreateTrial] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -728,8 +730,11 @@ export default function EnterpriseDashboard() {
     const matchesLevel = !filterLevel || level === filterLevel
     const score = c.certScore ?? c.score ?? 0
     const matchesScore = score >= minScore
-    return matchesSearch && matchesLevel && matchesScore
-  }), [candidates, searchQuery, filterLevel, minScore])
+    // 维度筛选
+    const portrait = c.portrait || {}
+    const matchesDim = !filterDim || (portrait[filterDim] ?? 0) >= minDimScore
+    return matchesSearch && matchesLevel && matchesScore && matchesDim
+  }), [candidates, searchQuery, filterLevel, minScore, filterDim, minDimScore])
 
   // 统计指标
   const totalCandidates = candidates.length
@@ -926,6 +931,41 @@ export default function EnterpriseDashboard() {
                 <span className="text-xs font-semibold w-6 text-center" style={{ color: '#c96442' }}>
                   {minScore}
                 </span>
+              </div>
+
+              {/* 维度筛选 */}
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border" style={{ background: '#ffffff', borderColor: '#e8e6dc' }}>
+                <select
+                  value={filterDim}
+                  onChange={(e) => setFilterDim(e.target.value)}
+                  className="text-xs outline-none cursor-pointer bg-transparent"
+                  style={{ color: '#141413' }}
+                >
+                  <option value="">全部维度</option>
+                  <option value="curiosity">好奇心</option>
+                  <option value="reliability">靠谱</option>
+                  <option value="factChecking">事实洁癖</option>
+                  <option value="diverseThinking">多元化思维</option>
+                  <option value="uncertaintyTolerance">忍受不确定性</option>
+                  <option value="lowEgoHighDrive">低ego高自驱</option>
+                </select>
+                {filterDim && (
+                  <>
+                    <span className="text-xs" style={{ color: '#87867f' }}>≥</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={minDimScore}
+                      onChange={(e) => setMinDimScore(Number(e.target.value))}
+                      className="w-16 cursor-pointer"
+                      style={{ accentColor: DIM_COLORS[filterDim] || '#c96442' }}
+                    />
+                    <span className="text-xs font-semibold w-6 text-center" style={{ color: DIM_COLORS[filterDim] || '#c96442' }}>
+                      {minDimScore}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 

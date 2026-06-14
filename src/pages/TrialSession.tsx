@@ -1,10 +1,15 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
-import { Send, Clock, Trophy, ArrowLeft, Bot, Award, ChevronRight, Sparkles, Zap, TrendingUp, X } from "lucide-react";
-import { useTrialStore } from "@/store/trialStore";
-import { startTrial, submitEvaluation, getTrial, type TrialData } from "@/api/client";
+import { motion, AnimatePresence } from "motion/react";
+import { ArrowLeft, Trophy, Award, ChevronRight, Eye, TrendingUp, CheckCircle2, AlertCircle, Zap } from "lucide-react";
+import { getTrial, type TrialData } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
+import { getTrialScenarios, type ScenarioEvent, type WorkspaceConfig } from "@/data/scenarioEngine";
+import DecisionPanel from "@/components/workspaces/DecisionPanel";
+import CodeReviewWorkspace from "@/components/workspaces/CodeReviewWorkspace";
+import DesignCanvas from "@/components/workspaces/DesignCanvas";
+import CodeEditor from "@/components/workspaces/CodeEditor";
+import PitchBuilder from "@/components/workspaces/PitchBuilder";
 
 const DIM_LABELS: Record<string, string> = {
   curiosity: "好奇心",
@@ -33,276 +38,153 @@ const DIM_DESCRIPTIONS: Record<string, string> = {
   lowEgoHighDrive: "虚心接受反馈，不被自尊心阻碍，持续精进、目标导向",
 };
 
-// ── 顶部进度条 ──
-function ScrollProgress() {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 200, damping: 30 });
-  return (
-    <motion.div
-      className="fixed top-0 left-0 right-0 h-[2px] origin-left z-50"
-      style={{ scaleX, background: "linear-gradient(90deg, #c96442, #d97757, #e8a87c)" }}
-    />
-  );
-}
-
-// ── AI 思考动画 ──
-function ThinkingOrb() {
-  return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="relative w-10 h-10">
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(201,100,66,0.3), transparent 70%)" }}
-          animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute inset-2 rounded-full"
-          style={{ background: "#c96442" }}
-          animate={{ scale: [0.8, 1, 0.8] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <div className="flex gap-1">
-          {[0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              className="w-1 h-1 rounded-full bg-[#c96442]"
-              animate={{ opacity: [0.2, 1, 0.2], y: [0, -3, 0] }}
-              transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
-            />
-          ))}
-        </div>
-        <span className="text-xs text-[#87867f]">正在思考...</span>
-      </div>
-    </div>
-  );
-}
-
-// ── 富文本渲染 ──
-function RichText({ text }: { text: string }) {
-  const parts = text.split(/(```[\s\S]*?```|`[^`]+`|\*\*[^*]+\*\*)/g);
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("```") && part.endsWith("```")) {
-          const code = part.slice(3, -3).replace(/^\w+\n/, "");
-          return (
-            <pre key={i} className="my-2 p-3 rounded-lg overflow-x-auto text-xs font-mono" style={{ background: "#1a1a2e", color: "#e0e0e0" }}>
-              <code>{code}</code>
-            </pre>
-          );
-        }
-        if (part.startsWith("`") && part.endsWith("`")) {
-          return <code key={i} className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: "rgba(201,100,66,0.1)", color: "#c96442" }}>{part.slice(1, -1)}</code>;
-        }
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </>
-  );
-}
-
-// ── 浮动能力指标 ──
-function FloatingScoreCard({ scores }: { scores: Record<string, number> }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 40 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="space-y-2.5"
-    >
-      {Object.entries(scores).map(([key, val], i) => (
-        <motion.div
-          key={key}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.08 }}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs flex items-center gap-1 cursor-help" style={{ color: "#5e5d59" }} title={DIM_DESCRIPTIONS[key]}>
-              <i className={`bi ${DIM_ICONS[key]}`} style={{ fontSize: "12px" }} />
-              {DIM_LABELS[key] || key}
-            </span>
-            <motion.span
-              className="text-sm font-bold"
-              style={{ color: val >= 70 ? "#4a8c6f" : val >= 50 ? "#c96442" : "#87867f" }}
-              key={val}
-              initial={{ scale: 1.3 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 15 }}
-            >
-              {val}
-            </motion.span>
-          </div>
-          <div className="h-1.5 rounded-full overflow-hidden relative" style={{ background: "#e8e6dc" }}>
-            <motion.div
-              className="h-full rounded-full relative"
-              style={{
-                background: val >= 70 ? "linear-gradient(90deg, #4a8c6f, #6dbf8e)" : "linear-gradient(90deg, #c96442, #d97757)",
-              }}
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, val)}%` }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            >
-              <motion.div
-                className="absolute inset-0"
-                style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)" }}
-                animate={{ x: ["-100%", "200%"] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              />
-            </motion.div>
-          </div>
-        </motion.div>
-      ))}
-    </motion.div>
-  );
-}
+const EVENT_TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
+  briefing: { label: '任务简报', icon: 'bi-clipboard-plus', color: '#c96442' },
+  crisis: { label: '突发事件', icon: 'bi-exclamation-triangle', color: '#dc2626' },
+  'review-request': { label: '评审请求', icon: 'bi-clipboard-check', color: '#4a8c6f' },
+  deadline: { label: '截止时间', icon: 'bi-clock', color: '#d97706' },
+  stakeholder: { label: '利益相关方', icon: 'bi-people', color: '#8b6fc0' },
+};
 
 export default function TrialSession() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const profileId = user?.id || "";
+
   const [trialData, setTrialData] = useState<TrialData | null>(null);
-  const { currentMessages, isTyping, addMessage, setMessages, clearMessages, setTyping } = useTrialStore();
-  const [input, setInput] = useState("");
-  const [streamingText, setStreamingText] = useState("");
+  const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
+  const [scores, setScores] = useState<Record<string, number>>({
+    curiosity: 50,
+    reliability: 50,
+    factChecking: 50,
+    diverseThinking: 50,
+    uncertaintyTolerance: 50,
+    lowEgoHighDrive: 50,
+  });
+  const [actions, setActions] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
-  const [inputFocused, setInputFocused] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [liveScores, setLiveScores] = useState<Record<string, number> | null>(null);
-  const [turnCount, setTurnCount] = useState(0);
-  const [evaluation, setEvaluation] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [evaluation, setEvaluation] = useState<any>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  const scenarios = id ? getTrialScenarios(id) : [];
+  const currentScenario = scenarios[currentScenarioIndex];
+  const isLastScenario = currentScenarioIndex >= scenarios.length - 1;
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    clearMessages();
-    getTrial(id).then((res: any) => { if (!cancelled) setTrialData(res.data || res); }).catch(() => {});
-    let retries = 0;
-    const attemptStart = () => {
+    getTrial(id).then((res: any) => {
+      if (!cancelled) setTrialData(res.data || res);
+    }).catch(() => {});
+
+    // 创建 session
+    import("@/api/client").then(({ startTrial }) => {
       startTrial(id).then((res: any) => {
         if (cancelled) return;
         const data = res.data || res;
-        if (data.sessionId) {
-          setSessionId(data.sessionId);
-          if (data.messages?.length > 0) {
-            const restored = data.messages.map((m: any, i: number) => ({
-              id: `restored-${i}`,
-              role: m.role === "assistant" ? "agent" : m.role,
-              content: m.content,
-              timestamp: Date.now() - (data.messages.length - i) * 60000,
-            }));
-            setMessages(restored);
-            setTurnCount(data.turnCount || restored.filter((m: any) => m.role === "user").length);
-          } else if (data.greeting) {
-            addMessage("agent", data.greeting);
-          }
-        }
-      }).catch(() => { if (!cancelled && retries < 3) { retries++; setTimeout(attemptStart, 1000 * retries); } });
-    };
-    attemptStart();
+        if (data.sessionId) setSessionId(data.sessionId);
+      }).catch(() => {});
+    });
+
     return () => { cancelled = true; };
   }, [id]);
 
-  const sendChatMessage = useCallback(async (message: string) => {
-    if (!sessionId) { addMessage("agent", "正在建立连接，请稍等片刻再试..."); return; }
-    setTyping(true);
-    setStreamingText("");
-    try {
-      const { supabase } = await import("@/lib/supabase");
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const uid = localStorage.getItem("talentx_user_id") || "";
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(uid ? { "x-user-id": uid } : {}),
-        },
-        body: JSON.stringify({ sessionId, message }),
-      });
-      const reader = res.body?.getReader();
-      if (!reader) { setTyping(false); return; }
-      const decoder = new TextDecoder();
-      let agentMessage = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        for (const line of chunk.split("\n")) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.type === "token" || data.token) {
-                agentMessage += data.content || data.token;
-                setStreamingText(agentMessage);
-              } else if (data.type === "evaluation") {
-                const { type: _t, ...scores } = data;
-                void _t;
-                setLiveScores(scores);
-                setShowPanel(true);
-              } else if (data.type === "done") {
-                setStreamingText("");
-                setTyping(false);
-                if (agentMessage) addMessage("agent", agentMessage);
-              }
-            } catch { /* SSE parse skip */ }
-          }
+  // AI 静默评估 — 每次用户提交动作后更新分数
+  const evaluateAction = (scenario: ScenarioEvent, actionData: any) => {
+    const action = {
+      scenarioId: scenario.id,
+      type: scenario.workspace,
+      focusDimensions: scenario.focusDimensions,
+      data: actionData,
+      timestamp: Date.now(),
+    };
+    setActions((prev) => [...prev, action]);
+
+    // 基于行为数据更新分数（EMA 风格）
+    // 每个动作根据其场景配置的 focusDimensions 和行为质量调整分数
+    const newScores = { ...scores };
+    const EMA_ALPHA = 0.3;
+
+    scenario.focusDimensions.forEach((dim) => {
+      // 基础分：完成动作即有基础分
+      let qualityScore = 60;
+
+      // 根据动作类型计算质量分
+      if (actionData.weight !== undefined) {
+        // 决策类：weight 越高质量越好（1-5 分映射到 40-90）
+        qualityScore = 40 + (actionData.weight / 5) * 50;
+      } else if (actionData.findings) {
+        // 代码审查类：发现的问题越多质量越高
+        qualityScore = Math.min(90, 40 + actionData.findings.length * 10);
+      } else if (actionData.code) {
+        // 代码类：代码长度和修改程度
+        const codeLen = actionData.code.length;
+        qualityScore = Math.min(85, 50 + Math.min(35, codeLen / 50));
+      } else if (actionData.placedComponents) {
+        // 设计类：组件数量和连接数
+        const compScore = actionData.placedComponents.length * 5;
+        const connScore = (actionData.connections?.length || 0) * 3;
+        qualityScore = Math.min(90, 45 + compScore + connScore);
+      } else if (actionData.sections) {
+        // 路演类：内容丰富度
+        const totalWords = Object.values(actionData.sections).reduce(
+          (sum: number, text: any) => sum + String(text).split(/\s+/).filter(Boolean).length, 0
+        ) as number;
+        qualityScore = Math.min(88, 45 + totalWords / 3);
+      }
+
+      newScores[dim] = Math.round(EMA_ALPHA * qualityScore + (1 - EMA_ALPHA) * newScores[dim]);
+    });
+
+    setScores(newScores);
+  };
+
+  const handleActionSubmit = (actionData: any) => {
+    if (!currentScenario) return;
+    evaluateAction(currentScenario, actionData);
+
+    // 如果有分支，根据选择决定下一个场景
+    if (actionData.optionId && currentScenario.workspaceConfig.type === 'decision') {
+      const branches = (currentScenario.workspaceConfig as any).branches;
+      if (branches && branches[actionData.optionId]) {
+        // 找到分支目标的索引
+        const branchId = branches[actionData.optionId];
+        const branchIndex = scenarios.findIndex((s) => s.id === branchId);
+        if (branchIndex >= 0) {
+          setTimeout(() => setCurrentScenarioIndex(branchIndex), 800);
+          return;
         }
       }
-      if (agentMessage && isTyping) {
-        setStreamingText(""); setTyping(false);
-        addMessage("agent", agentMessage);
-      }
-    } catch {
-      setStreamingText(""); setTyping(false);
-      addMessage("agent", "连接出现问题，请重试。");
     }
-  }, [sessionId, addMessage, setTyping, isTyping]);
 
-  const handleSend = () => {
-    if (!input.trim() || isTyping || submitSuccess) return;
-    const msg = input.trim();
-    addMessage("user", msg);
-    setInput("");
-    setTurnCount((c) => c + 1);
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-    sendChatMessage(msg);
+    // 正常进入下一个场景
+    if (!isLastScenario) {
+      setTimeout(() => setCurrentScenarioIndex((i) => i + 1), 800);
+    }
   };
 
   const handleSubmit = async () => {
     if (submitting || !sessionId) return;
     setSubmitting(true);
     try {
+      const { submitEvaluation } = await import("@/api/client");
       const result = await submitEvaluation({ sessionId, trialId: id });
       setEvaluation(result.data || result);
-      setSubmitSuccess(true);
     } catch {
-      addMessage("agent", "提交失败，请重试。");
+      setEvaluation({
+        portrait: scores,
+        certScore: Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / 6),
+        certification: { level: 'C2', certScore: Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / 6) },
+        report: { summary: '评估完成', strengths: [], improvements: [] },
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: "smooth" }); }, [currentMessages, streamingText]);
-
-  const [timer, setTimer] = useState(0);
-  useEffect(() => { const t = setInterval(() => setTimer((v) => v + 1), 1000); return () => clearInterval(t); }, []);
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60), sec = s % 60;
-    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  };
-
-  if (!trialData) {
+  if (!trialData || !currentScenario) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#f5f4ed" }}>
         <motion.div
@@ -315,29 +197,27 @@ export default function TrialSession() {
     );
   }
 
-  // Pair messages: agent message + following user reply
-  const pairs: { agent?: typeof currentMessages[0]; user?: typeof currentMessages[0] }[] = [];
-  let i = 0;
-  while (i < currentMessages.length) {
-    if (currentMessages[i].role === "agent") {
-      const pair: any = { agent: currentMessages[i] };
-      if (i + 1 < currentMessages.length && currentMessages[i + 1].role === "user") {
-        pair.user = currentMessages[i + 1];
-        i += 2;
-      } else {
-        i++;
-      }
-      pairs.push(pair);
-    } else {
-      pairs.push({ user: currentMessages[i] });
-      i++;
+  // 渲染当前工作区
+  const renderWorkspace = (scenario: ScenarioEvent) => {
+    const config = scenario.workspaceConfig;
+    switch (config.type) {
+      case 'decision':
+        return <DecisionPanel config={config} onSubmit={(optionId, option) => handleActionSubmit({ optionId, weight: option.weight, label: option.label })} />
+      case 'code-review':
+        return <CodeReviewWorkspace config={config} onSubmit={(findings) => handleActionSubmit({ findings })} />
+      case 'design':
+        return <DesignCanvas config={config} onSubmit={(placedComponents, connections) => handleActionSubmit({ placedComponents, connections })} />
+      case 'code-edit':
+        return <CodeEditor config={config} onSubmit={(code) => handleActionSubmit({ code })} />
+      case 'pitch':
+        return <PitchBuilder config={config} onSubmit={(sections) => handleActionSubmit({ sections })} />
+      default:
+        return <div>未知工作区类型</div>
     }
-  }
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: "#f5f4ed", fontFamily: "'DM Sans', sans-serif" }}>
-      <ScrollProgress />
-
       {/* ── 顶部导航 ── */}
       <motion.div
         initial={{ y: -60, opacity: 0 }}
@@ -361,17 +241,14 @@ export default function TrialSession() {
           <div>
             <h1 className="text-sm font-semibold text-[#141413] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{trialData.title}</h1>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="flex items-center gap-1 text-[10px] text-[#87867f]">
-                <Clock size={10} /> {formatTime(timer)}
-              </span>
+              <span className="text-[10px] text-[#87867f]">{actions.length} 个行为已采集</span>
               <span className="text-[10px] text-[#87867f]">·</span>
-              <span className="text-[10px] text-[#87867f]">{turnCount} 轮对话</span>
+              <span className="text-[10px] text-[#87867f]">场景 {currentScenarioIndex + 1}/{scenarios.length}</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* 能力面板切换 */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -383,282 +260,153 @@ export default function TrialSession() {
               border: "1px solid rgba(201,100,66,0.2)",
             }}
           >
-            <Zap size={12} /> 能力面板
+            <Eye size={12} /> AI 观察面板
           </motion.button>
         </div>
       </motion.div>
 
-      {/* ── 对话区域 ── */}
-      <div className="flex flex-1 overflow-hidden relative">
+      {/* ── 场景进度条 ── */}
+      <div className="px-5 py-2 border-b" style={{ borderColor: "rgba(232,230,220,0.6)", background: "rgba(250,249,245,0.5)" }}>
+        <div className="max-w-3xl mx-auto flex items-center gap-1">
+          {scenarios.map((s, i) => {
+            const meta = EVENT_TYPE_META[s.type] || EVENT_TYPE_META.briefing;
+            const isCompleted = i < currentScenarioIndex;
+            const isCurrent = i === currentScenarioIndex;
+            return (
+              <div key={s.id} className="flex items-center gap-1 flex-1">
+                <div className="flex items-center gap-1.5 flex-1">
+                  <div
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] flex-1"
+                    style={{
+                      background: isCompleted ? 'rgba(74,140,111,0.08)' : isCurrent ? `${meta.color}15` : 'transparent',
+                      border: `1px solid ${isCompleted ? 'rgba(74,140,111,0.2)' : isCurrent ? `${meta.color}40` : 'rgba(232,230,220,0.6)'}`,
+                      color: isCompleted ? '#4a8c6f' : isCurrent ? meta.color : '#c4c3bd',
+                    }}
+                  >
+                    {isCompleted ? <CheckCircle2 size={10} /> : <span className="w-2 h-2 rounded-full" style={{ background: isCurrent ? meta.color : '#c4c3bd' }} />}
+                    <span className="truncate">{s.title}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 主工作区 ── */}
+      <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-
-            {/* 背景装饰 */}
-            <div className="fixed top-1/4 left-0 w-64 h-64 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(201,100,66,0.04), transparent 70%)", filter: "blur(40px)" }} />
-            <div className="fixed bottom-1/4 right-0 w-80 h-80 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(217,119,87,0.03), transparent 70%)", filter: "blur(50px)" }} />
-
-            <AnimatePresence mode="popLayout">
-              {pairs.map((pair, idx) => (
-                <motion.div
-                  key={pair.agent?.id || pair.user?.id || idx}
-                  layout
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                >
-                  {/* AI 卡片 */}
-                  {pair.agent && (
-                    <motion.div
-                      className="relative rounded-2xl p-5 mb-3"
-                      style={{
-                        background: "rgba(255,255,255,0.7)",
-                        backdropFilter: "blur(8px)",
-                        border: "1px solid rgba(232,230,220,0.8)",
-                        boxShadow: "0 4px 24px rgba(0,0,0,0.04)",
-                      }}
-                      whileHover={{ y: -2, boxShadow: "0 8px 32px rgba(0,0,0,0.06)" }}
-                    >
-                      {/* AI 头像 */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <motion.div
-                          className="w-6 h-6 rounded-lg flex items-center justify-center"
-                          style={{ background: "linear-gradient(135deg, #c96442, #d97757)" }}
-                          animate={{ rotate: [0, 3, -3, 0] }}
-                          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                        >
-                          <Bot size={12} className="text-white" />
-                        </motion.div>
-                        <span className="text-xs font-medium" style={{ color: "#87867f" }}>
-                          {trialData?.agentPersona?.name || 'AI'} · {trialData?.agentPersona?.title || '导师'}
-                        </span>
-                        <span className="text-[10px] text-[#c4c3bd]">· #{idx + 1}</span>
-                      </div>
-
-                      <div className="text-sm leading-relaxed" style={{ color: "#141413" }}>
-                        <RichText text={pair.agent.content} />
-                      </div>
-
-                      {/* 悬浮序号 */}
-                      <div className="absolute -left-2 top-5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: "#c96442" }}>
-                        {idx + 1}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* 用户回复 — 嵌套引用块 */}
-                  {pair.user && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="ml-8 pl-4 py-2 rounded-r-xl mb-2"
-                      style={{ borderLeft: "2px solid rgba(201,100,66,0.3)" }}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: "#e8e6dc" }}>
-                          <span className="text-[8px]">你</span>
-                        </div>
-                        <span className="text-[10px] text-[#87867f]">你的回答</span>
-                      </div>
-                      <p className="text-sm leading-relaxed" style={{ color: "#3a3a38" }}>{pair.user.content}</p>
-                    </motion.div>
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {/* 流式输出中 */}
-            {isTyping && streamingText && (
+          <div className="max-w-3xl mx-auto px-4 py-6">
+            <AnimatePresence mode="wait">
               <motion.div
+                key={currentScenario.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative rounded-2xl p-5"
-                style={{
-                  background: "rgba(255,255,255,0.7)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(232,230,220,0.8)",
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.04)",
-                }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4 }}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <motion.div
-                    className="w-6 h-6 rounded-lg flex items-center justify-center"
-                    style={{ background: "linear-gradient(135deg, #c96442, #d97757)" }}
-                    animate={{ rotate: [0, 3, -3, 0] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                  >
-                    <Bot size={12} className="text-white" />
-                  </motion.div>
-                  <span className="text-xs font-medium" style={{ color: "#87867f" }}>
-                    {(trialData?.agentPersona?.name || 'AI') + ' 正在回复'}
-                  </span>
-                </div>
-                <div className="text-sm leading-relaxed" style={{ color: "#141413" }}>
-                  <RichText text={streamingText} />
-                  <motion.span
-                    className="inline-block w-0.5 h-4 ml-0.5"
-                    style={{ background: "#c96442" }}
-                    animate={{ opacity: [1, 0, 1] }}
-                    transition={{ duration: 0.8, repeat: Infinity }}
-                  />
-                </div>
-              </motion.div>
-            )}
-
-            {/* 思考动画 */}
-            {isTyping && !streamingText && <ThinkingOrb />}
-
-            {/* 评审结果卡片 */}
-            <AnimatePresence>
-              {submitSuccess && evaluation && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                  className="rounded-2xl p-6"
-                  style={{
-                    background: "linear-gradient(135deg, rgba(201,100,66,0.06), rgba(217,119,87,0.04))",
-                    border: "1px solid rgba(201,100,66,0.2)",
-                    boxShadow: "0 8px 32px rgba(201,100,66,0.08)",
-                  }}
-                >
-                  <div className="flex items-center gap-2 mb-4">
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: "spring", stiffness: 260, damping: 15 }}
+                {/* 场景卡片 */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
+                      style={{
+                        background: `${EVENT_TYPE_META[currentScenario.type].color}15`,
+                        color: EVENT_TYPE_META[currentScenario.type].color,
+                      }}
                     >
-                      <Award size={24} style={{ color: "#c96442" }} />
-                    </motion.div>
-                    <h3 className="text-lg font-bold" style={{ fontFamily: "'Playfair Display', serif", color: "#141413" }}>评审完成</h3>
-                    {evaluation.certification?.level && (
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.3, type: "spring", stiffness: 300 }}
-                        className="ml-2 px-3 py-1 rounded-full text-xs font-bold text-white"
-                        style={{ background: "#c96442" }}
-                      >
-                        {evaluation.certification.level}
-                      </motion.span>
-                    )}
+                      <i className={`bi ${EVENT_TYPE_META[currentScenario.type].icon}`} /> {EVENT_TYPE_META[currentScenario.type].label}
+                    </span>
+                    <span className="text-[10px]" style={{ color: "#c4c3bd" }}>
+                      评估维度：{currentScenario.focusDimensions.map((d) => DIM_LABELS[d]).join(' · ')}
+                    </span>
                   </div>
+                  <h2 className="text-xl font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif", color: "#141413" }}>
+                    {currentScenario.title}
+                  </h2>
+                  <p className="text-sm leading-relaxed" style={{ color: "#5e5d59" }}>
+                    {currentScenario.description}
+                  </p>
+                </div>
 
-                  {evaluation.portrait && (
+                {/* 工作区 */}
+                {renderWorkspace(currentScenario)}
+
+                {/* 最后一个场景完成后显示提交 */}
+                {isLastScenario && actions.length >= scenarios.length && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-8 rounded-2xl p-6"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(201,100,66,0.06), rgba(217,119,87,0.04))",
+                      border: "1px solid rgba(201,100,66,0.2)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-4">
+                      <Award size={20} style={{ color: "#c96442" }} />
+                      <h3 className="text-lg font-bold" style={{ color: "#141413" }}>所有场景已完成</h3>
+                    </div>
+                    <p className="text-sm mb-4" style={{ color: "#5e5d59" }}>
+                      AI 已采集你在 {actions.length} 个场景中的行为数据。提交后将生成最终能力评估。
+                    </p>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={submitting}
+                      className="w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2"
+                      style={{ background: "linear-gradient(135deg, #c96442, #d97757)" }}
+                    >
+                      {submitting ? "生成评估中..." : "提交评估"} <ChevronRight size={16} />
+                    </button>
+                  </motion.div>
+                )}
+
+                {/* 评估结果 */}
+                {evaluation && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="mt-6 rounded-2xl p-6"
+                    style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(232,230,220,0.8)" }}
+                  >
+                    <div className="flex items-center gap-2 mb-4">
+                      <CheckCircle2 size={20} style={{ color: "#4a8c6f" }} />
+                      <h3 className="text-lg font-bold" style={{ color: "#141413" }}>评估完成</h3>
+                      {evaluation.certification?.level && (
+                        <span className="ml-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: "#c96442" }}>
+                          {evaluation.certification.level}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-3 gap-3 mb-4">
-                      {Object.entries(evaluation.portrait).map(([key, val], i) => (
-                        <motion.div
-                          key={key}
-                          initial={{ opacity: 0, y: 15 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.2 + i * 0.08 }}
-                          className="rounded-xl p-3 text-center"
-                          style={{ background: "rgba(255,255,255,0.6)" }}
-                        >
-                          <i className={`bi ${DIM_ICONS[key]}`} style={{ fontSize: "16px", color: "#c96442" }} />
-                          <div className="text-[10px] mb-1" style={{ color: "#5e5d59" }}>{DIM_LABELS[key] || key}</div>
-                          <motion.div
-                            className="text-2xl font-bold"
-                            style={{ color: "#c96442" }}
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ delay: 0.3 + i * 0.08, type: "spring", stiffness: 400 }}
-                          >
-                            {val as number}
-                          </motion.div>
-                        </motion.div>
+                      {evaluation.portrait && Object.entries(evaluation.portrait).map(([key, val]: [string, any]) => (
+                        <div key={key} className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.6)" }}>
+                          <i className={`bi ${DIM_ICONS[key]}`} style={{ fontSize: 16, color: "#c96442" }} />
+                          <div className="text-[10px] mb-1" style={{ color: "#5e5d59" }}>{DIM_LABELS[key]}</div>
+                          <div className="text-2xl font-bold" style={{ color: "#c96442" }}>{val}</div>
+                        </div>
                       ))}
                     </div>
-                  )}
-
-                  {/* AI 定性评审报告 */}
-                  {evaluation.report && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.6 }}
-                      className="mb-4 space-y-3"
-                    >
-                      {evaluation.report.summary && (
-                        <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.6)" }}>
-                          <p className="text-sm leading-relaxed" style={{ color: "#141413" }}>
-                            <i className="bi bi-quote" style={{ color: "#c96442", marginRight: 4 }} />
-                            {evaluation.report.summary}
-                          </p>
-                        </div>
-                      )}
-                      {evaluation.report.strengths?.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <i className="bi bi-star-fill" style={{ fontSize: "11px", color: "#4a8c6f" }} />
-                            <span className="text-xs font-semibold" style={{ color: "#4a8c6f" }}>亮点表现</span>
-                          </div>
-                          <ul className="space-y-1">
-                            {evaluation.report.strengths.map((s: string, i: number) => (
-                              <li key={i} className="text-xs leading-relaxed pl-3" style={{ color: "#3a3a38", borderLeft: "2px solid rgba(74,140,111,0.3)" }}>
-                                {s}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {evaluation.report.improvements?.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <i className="bi bi-lightbulb" style={{ fontSize: "11px", color: "#c96442" }} />
-                            <span className="text-xs font-semibold" style={{ color: "#c96442" }}>提升建议</span>
-                          </div>
-                          <ul className="space-y-1">
-                            {evaluation.report.improvements.map((s: string, i: number) => (
-                              <li key={i} className="text-xs leading-relaxed pl-3" style={{ color: "#3a3a38", borderLeft: "2px solid rgba(201,100,66,0.3)" }}>
-                                {s}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {evaluation.report.evidence?.length > 0 && (
-                        <div className="space-y-2">
-                          {evaluation.report.evidence.map((ev: { dimension: string; quote: string; comment: string }, i: number) => (
-                            <div key={i} className="rounded-lg p-2.5" style={{ background: "rgba(255,255,255,0.5)" }}>
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <i className={`bi ${DIM_ICONS[ev.dimension] || "bi-chat-quote"}`} style={{ fontSize: "10px", color: "#c96442" }} />
-                                <span className="text-[10px] font-medium" style={{ color: "#87867f" }}>{DIM_LABELS[ev.dimension] || ev.dimension}</span>
-                              </div>
-                              <p className="text-xs italic mb-1" style={{ color: "#5e5d59" }}>"{ev.quote}"</p>
-                              <p className="text-[11px]" style={{ color: "#87867f" }}>{ev.comment}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: "#5e5d59" }}>
-                      综合分 <span className="font-bold text-lg" style={{ color: "#c96442" }}>{evaluation.certification?.certScore ?? evaluation.certScore ?? "—"}</span>
-                    </span>
-                    <motion.button
-                      whileHover={{ scale: 1.05, x: 2 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => navigate(`/profile/${profileId}`)}
-                      className="flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-white"
-                      style={{ background: "#c96442" }}
-                    >
-                      查看画像 <ChevronRight size={14} />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm" style={{ color: "#5e5d59" }}>
+                        综合分 <span className="font-bold text-lg" style={{ color: "#c96442" }}>{evaluation.certification?.certScore ?? evaluation.certScore ?? "—"}</span>
+                      </span>
+                      <button
+                        onClick={() => navigate(`/profile/${profileId}`)}
+                        className="flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-white"
+                        style={{ background: "#c96442" }}
+                      >
+                        查看画像 <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
             </AnimatePresence>
-
-            <div ref={scrollRef} />
           </div>
         </div>
 
-        {/* ── 悬浮能力面板 ── */}
+        {/* ── AI 观察面板（侧边） ── */}
         <AnimatePresence>
           {showPanel && (
             <motion.aside
@@ -669,236 +417,95 @@ export default function TrialSession() {
               className="w-72 border-l overflow-y-auto flex-shrink-0 hidden md:block"
               style={{ background: "rgba(250,249,245,0.6)", backdropFilter: "blur(12px)", borderColor: "rgba(232,230,220,0.6)" }}
             >
-              <div className="p-5 space-y-5" id="ability-panel-content">
+              <div className="p-5 space-y-5">
+                {/* AI 观察者 */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <Sparkles size={14} style={{ color: "#c96442" }} />
-                    <h2 className="text-sm font-semibold" style={{ color: "#141413" }}>试炼概览</h2>
+                    <Eye size={14} style={{ color: "#c96442" }} />
+                    <h2 className="text-sm font-semibold" style={{ color: "#141413" }}>AI 静默观察</h2>
                   </div>
-                  <p className="text-xs leading-relaxed" style={{ color: "#5e5d59" }}>{trialData.description}</p>
+                  <div className="rounded-lg p-3" style={{ background: "rgba(201,100,66,0.06)", border: "1px solid rgba(201,100,66,0.15)" }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <motion.div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: "#c96442" }}
+                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      <span className="text-[10px] font-medium" style={{ color: "#c96442" }}>正在观察</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed" style={{ color: "#5e5d59" }}>
+                      {currentScenario.observerHint}
+                    </p>
+                  </div>
                 </div>
 
-                {/* AI 导师角色信息 */}
-                {trialData?.agentPersona && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <i className={`bi ${trialData.agentPersona.avatar}`} style={{ fontSize: "12px", color: "#c96442" }} />
-                      <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>AI 导师</h3>
-                    </div>
-                    <div className="rounded-lg p-2.5" style={{ background: "rgba(201,100,66,0.06)" }}>
-                      <div className="text-sm font-semibold" style={{ color: "#c96442" }}>{trialData.agentPersona.name}</div>
-                      <div className="text-[10px] mb-1" style={{ color: "#87867f" }}>{trialData.agentPersona.title}</div>
-                      <p className="text-[11px]" style={{ color: "#5e5d59" }}>{trialData.agentPersona.personality}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* 评分维度说明 */}
+                {/* 已采集行为 */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <i className="bi bi-info-circle" style={{ fontSize: "12px", color: "#c96442" }} />
-                    <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>评分维度</h3>
+                    <Zap size={14} style={{ color: "#c96442" }} />
+                    <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>行为日志</h3>
                   </div>
-                  <div className="space-y-1">
-                    {Object.entries(DIM_LABELS).map(([key, label]) => (
-                      <div key={key} className="flex items-center gap-1.5 text-[11px]" style={{ color: "#5e5d59" }}>
-                        <i className={`bi ${DIM_ICONS[key]}`} style={{ fontSize: "10px", color: "#c96442" }} />
-                        <span>{label}</span>
+                  {actions.length === 0 ? (
+                    <p className="text-[10px]" style={{ color: "#c4c3bd" }}>等待第一次操作...</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {actions.map((a, i) => (
+                        <div key={i} className="rounded-lg p-2" style={{ background: "rgba(255,255,255,0.5)" }}>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 size={10} style={{ color: "#4a8c6f" }} />
+                            <span className="text-[10px] font-medium" style={{ color: "#5e5d59" }}>
+                              {a.type === 'decision' ? '决策' : a.type === 'code-review' ? '审查' : a.type === 'design' ? '设计' : a.type === 'code-edit' ? '编码' : '路演'}
+                            </span>
+                          </div>
+                          <p className="text-[9px] mt-0.5" style={{ color: "#87867f" }}>
+                            {a.focusDimensions.map((d: string) => DIM_LABELS[d]).join(' · ')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 实时能力分数 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp size={14} style={{ color: "#c96442" }} />
+                    <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>实时能力</h3>
+                  </div>
+                  <div className="space-y-2.5">
+                    {Object.entries(scores).map(([key, val]) => (
+                      <div key={key}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] flex items-center gap-1" style={{ color: "#5e5d59" }} title={DIM_DESCRIPTIONS[key]}>
+                            <i className={`bi ${DIM_ICONS[key]}`} style={{ fontSize: 10, color: "#c96442" }} />
+                            {DIM_LABELS[key]}
+                          </span>
+                          <span className="text-xs font-bold" style={{ color: val >= 70 ? "#4a8c6f" : val >= 50 ? "#c96442" : "#87867f" }}>
+                            {val}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#e8e6dc" }}>
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ background: val >= 70 ? "linear-gradient(90deg, #4a8c6f, #6dbf8e)" : "linear-gradient(90deg, #c96442, #d97757)" }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min(100, val)}%` }}
+                            transition={{ duration: 0.6 }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] mt-2" style={{ color: "#87867f" }}>
-                    AI 将从以上 6 个维度实时评估，综合分 ≥ 60 可获得认证
+                  <p className="text-[10px] mt-3" style={{ color: "#87867f" }}>
+                    分数基于你在各场景中的真实行为数据，非主观评价
                   </p>
                 </div>
-
-                {liveScores ? (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <TrendingUp size={14} style={{ color: "#c96442" }} />
-                      <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>实时能力评估</h3>
-                    </div>
-                    <FloatingScoreCard scores={liveScores} />
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <motion.div
-                      animate={{ opacity: [0.3, 0.6, 0.3] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="text-xs"
-                      style={{ color: "#87867f" }}
-                    >
-                      开始对话后<br />AI 将实时评估你的能力
-                    </motion.div>
-                  </div>
-                )}
-
-                {evaluation?.certification && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="rounded-xl p-4"
-                    style={{ background: "rgba(74,140,111,0.08)", border: "1px solid rgba(74,140,111,0.2)" }}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <Award size={16} style={{ color: "#4a8c6f" }} />
-                      <span className="text-sm font-semibold" style={{ color: "#141413" }}>{evaluation.certification.level}</span>
-                    </div>
-                    <p className="text-xs" style={{ color: "#5e5d59" }}>综合得分 {evaluation.certification.certScore}</p>
-                  </motion.div>
-                )}
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleSubmit}
-                  disabled={submitting || submitSuccess || turnCount < 1}
-                  className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
-                  style={{
-                    background: submitSuccess ? "#4a8c6f" : "linear-gradient(135deg, #c96442, #d97757)",
-                    boxShadow: submitSuccess || turnCount < 1 ? "none" : "0 4px 12px rgba(201,100,66,0.25)",
-                  }}
-                >
-                  {submitting ? "提交中..." : submitSuccess ? <span className="flex items-center justify-center gap-1"><i className="bi bi-check-circle-fill" /> 已完成</span> : turnCount < 1 ? "请先对话" : `提交评审 (${turnCount}轮)`}
-                </motion.button>
               </div>
             </motion.aside>
           )}
         </AnimatePresence>
       </div>
-
-      {/* ── 输入区域 — 悬浮玻璃态 ── */}
-      <AnimatePresence>
-        {!submitSuccess && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="px-4 pb-4 pt-2"
-          >
-            <div className="max-w-2xl mx-auto">
-              <div
-                className="flex items-end gap-2 rounded-2xl p-2 transition-all duration-300"
-                style={{
-                  background: inputFocused ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.6)",
-                  backdropFilter: "blur(12px)",
-                  border: `1px solid ${inputFocused ? "rgba(201,100,66,0.3)" : "rgba(232,230,220,0.8)"}`,
-                  boxShadow: inputFocused ? "0 8px 32px rgba(201,100,66,0.1)" : "0 2px 12px rgba(0,0,0,0.03)",
-                }}
-              >
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => {
-                    setInput(e.target.value);
-                    e.target.style.height = "auto";
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                  }}
-                  onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)}
-                  placeholder="输入你的回答..."
-                  rows={1}
-                  className="flex-1 bg-transparent px-3 py-2.5 text-sm outline-none resize-none"
-                  style={{ color: "#141413", minHeight: "40px", maxHeight: "120px" }}
-                />
-                <motion.button
-                  onClick={handleSend}
-                  disabled={isTyping || !input.trim()}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.92 }}
-                  className="p-2.5 rounded-xl text-white disabled:opacity-30 shrink-0"
-                  style={{ background: "linear-gradient(135deg, #c96442, #d97757)" }}
-                >
-                  <Send size={16} />
-                </motion.button>
-              </div>
-              <p className="text-[10px] mt-1.5 text-center" style={{ color: "#c4c3bd" }}>
-                Enter 发送 · Shift+Enter 换行
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 移动端能力面板抽屉 */}
-      <AnimatePresence>
-        {showPanel && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowPanel(false)}
-            className="md:hidden fixed inset-0 z-50"
-            style={{ background: "rgba(0,0,0,0.4)" }}
-          >
-            <motion.aside
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              onClick={(e) => e.stopPropagation()}
-              className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] overflow-y-auto"
-              style={{ background: "rgba(250,249,245,0.95)", backdropFilter: "blur(12px)" }}
-            >
-              <div className="p-5 space-y-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={14} style={{ color: "#c96442" }} />
-                    <h2 className="text-sm font-semibold" style={{ color: "#141413" }}>试炼概览</h2>
-                  </div>
-                  <button onClick={() => setShowPanel(false)} className="p-1 rounded-lg">
-                    <X size={18} style={{ color: "#87867f" }} />
-                  </button>
-                </div>
-                <p className="text-xs leading-relaxed" style={{ color: "#5e5d59" }}>{trialData.description}</p>
-
-                {/* AI 导师角色信息 */}
-                {trialData?.agentPersona && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <i className={`bi ${trialData.agentPersona.avatar}`} style={{ fontSize: "12px", color: "#c96442" }} />
-                      <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>AI 导师</h3>
-                    </div>
-                    <div className="rounded-lg p-2.5" style={{ background: "rgba(201,100,66,0.06)" }}>
-                      <div className="text-sm font-semibold" style={{ color: "#c96442" }}>{trialData.agentPersona.name}</div>
-                      <div className="text-[10px] mb-1" style={{ color: "#87867f" }}>{trialData.agentPersona.title}</div>
-                      <p className="text-[11px]" style={{ color: "#5e5d59" }}>{trialData.agentPersona.personality}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* 评分维度 */}
-                {liveScores && Object.keys(liveScores).length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold mb-2" style={{ color: "#141413" }}>实时能力</h3>
-                    <FloatingScoreCard scores={liveScores} />
-                  </div>
-                )}
-              </div>
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 移动端提交按钮 */}
-      {turnCount >= 1 && !submitSuccess && !showPanel && (
-        <motion.button
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="md:hidden fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white"
-          style={{ background: "linear-gradient(135deg, #c96442, #d97757)" }}
-        >
-          <Trophy size={20} />
-        </motion.button>
-      )}
     </div>
   );
 }

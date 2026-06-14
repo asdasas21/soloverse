@@ -1,5 +1,6 @@
-import type { Request } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase.js'
 
 let _adminClient: ReturnType<typeof createClient> | null = null
 
@@ -33,4 +34,34 @@ export async function getAuthenticatedUserId(req: Request): Promise<string | nul
     return userId
   }
   return null
+}
+
+/**
+ * 检查用户是否为企业端角色
+ */
+export async function isEnterpriseUser(userId: string): Promise<boolean> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle()
+  return profile?.role === 'enterprise'
+}
+
+/**
+ * Express 中间件：要求企业端角色
+ * 非企业端用户访问返回 403
+ */
+export async function requireEnterpriseRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const userId = await getAuthenticatedUserId(req)
+  if (!userId) {
+    res.status(401).json({ success: false, error: '请先登录' })
+    return
+  }
+  const isEnterprise = await isEnterpriseUser(userId)
+  if (!isEnterprise) {
+    res.status(403).json({ success: false, error: '该功能仅对企业端用户开放' })
+    return
+  }
+  next()
 }

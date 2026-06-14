@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 
 // Nav auth button
 function NavAuth() {
-  const { user, profile, signOut } = useAuthStore();
+  const { user, profile, isEnterprise, signOut } = useAuthStore();
   const navigate = useNavigate();
   if (user) {
     return (
@@ -15,7 +15,7 @@ function NavAuth() {
         <span
           className="cursor-pointer hover:opacity-70 transition-opacity"
           style={{ color: '#c96442' }}
-          onClick={() => navigate(`/profile/${user.id}`)}
+          onClick={() => navigate(isEnterprise ? '/enterprise' : `/profile/${user.id}`)}
         >
           {profile?.display_name || profile?.username || '我的'}
         </span>
@@ -36,27 +36,50 @@ function NavAuth() {
   );
 }
 
+// Nav links based on role
+function NavLinks({ mobile = false }: { mobile?: boolean }) {
+  const { isEnterprise } = useAuthStore();
+  if (isEnterprise) {
+    return (
+      <>
+        <Link to="/enterprise" className="hover:opacity-70 transition-opacity">人才库</Link>
+        <Link to="/leaderboard" className="hover:opacity-70 transition-opacity">排行榜</Link>
+        {!mobile && <NavAuth />}
+      </>
+    );
+  }
+  return (
+    <>
+      <Link to="/trials" className="hover:opacity-70 transition-opacity">{mobile ? '试炼' : '试炼大厅'}</Link>
+      <Link to="/leaderboard" className="hover:opacity-70 transition-opacity">{mobile ? '排行' : '排行榜'}</Link>
+      {!mobile && <Link to="/skills" className="hover:opacity-70 transition-opacity" title="创建和分享 AI 技能">Skill Studio</Link>}
+      {!mobile && <NavAuth />}
+      {mobile && <NavAuth />}
+    </>
+  );
+}
+
 const steps = [
   {
     icon: Swords,
-    title: '进入试炼',
+    title: '进入工作区',
     subtitle: 'Enter the Arena',
-    desc: '选择高并发设计、代码审查、RAG 搭建等真实工程场景，AI 导师将以技术面试官的身份与你深度对话',
-    highlight: '6 大维度 · 实时评估',
+    desc: '选择黑客松、代码审查、系统设计等真实工程场景。你将在交互式工作区中操作——做决策、写代码、画架构、审 diff',
+    highlight: '7 大场景 · 真实工程',
   },
   {
     icon: Code,
-    title: '深度对话',
-    subtitle: 'Prove Your Depth',
-    desc: '不是选择题，不是八股文。你需要在对话中展示真实的技术决策过程、架构思考与问题拆解能力',
-    highlight: 'AI 追问 · 防伪装',
+    title: 'AI 静默观察',
+    subtitle: 'Silent Assessment',
+    desc: '没有聊天，没有口试。你在工作区中真实操作，AI Agent 在后台静默采集行为数据——决策质量、代码习惯、架构思路、应对危机的反应',
+    highlight: '行为驱动 · 零对话',
   },
   {
     icon: Award,
-    title: '获得认证',
+    title: '获得能力认证',
     subtitle: 'Get Certified',
-    desc: '基于 EMA 算法的动态评分生成能力 DNA，C1-C3 级认证可作为简历替代品直接展示给雇主',
-    highlight: '区块链可验证',
+    desc: '基于 EMA 算法综合各场景行为数据，生成六维能力 DNA。C1-C3 级认证可作为简历替代品直接展示给雇主',
+    highlight: '在线可验证',
   },
 ];
 
@@ -132,12 +155,11 @@ export default function Landing() {
       }}>
         <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-4">
           <span className="text-xl font-bold cursor-pointer" onClick={() => navigate('/')} style={{ fontFamily: "'Playfair Display', serif", color: '#141413' }}>TalentX</span>
-          <div className="flex items-center gap-4 text-sm" style={{ color: '#5e5d59' }}>
-            <Link to="/trials" className="hover:opacity-70 transition-opacity">试炼大厅</Link>
-            <Link to="/leaderboard" className="hover:opacity-70 transition-opacity">排行榜</Link>
-            <Link to="/skills" className="hover:opacity-70 transition-opacity" title="创建和分享 AI 技能">Skill Studio</Link>
-            <Link to="/enterprise" className="hover:opacity-70 transition-opacity">企业端</Link>
-            <NavAuth />
+          <div className="hidden md:flex items-center gap-4 text-sm" style={{ color: '#5e5d59' }}>
+            <NavLinks />
+          </div>
+          <div className="flex md:hidden items-center gap-3 text-sm" style={{ color: '#5e5d59' }}>
+            <NavLinks mobile />
           </div>
         </div>
       </nav>
@@ -175,8 +197,15 @@ export default function Landing() {
             <span className="block text-3xl md:text-5xl mt-2 font-normal" style={{ color: '#5e5d59' }}>人才试炼场</span>
           </h1>
           <p className="text-lg md:text-xl max-w-lg mx-auto mb-10" style={{ color: '#5e5d59' }}>
-            简历可以包装，对话不能伪装
+            简历可以包装，真实行为不会说谎
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
+            <span className="text-[11px] px-3 py-1 rounded-full" style={{ background: 'rgba(201,100,66,0.08)', color: '#c96442' }}>决策模拟</span>
+            <span className="text-[11px] px-3 py-1 rounded-full" style={{ background: 'rgba(74,140,111,0.08)', color: '#4a8c6f' }}>代码审查</span>
+            <span className="text-[11px] px-3 py-1 rounded-full" style={{ background: 'rgba(99,102,241,0.08)', color: '#6366f1' }}>架构设计</span>
+            <span className="text-[11px] px-3 py-1 rounded-full" style={{ background: 'rgba(217,119,6,0.08)', color: '#d97706' }}>编码实战</span>
+            <span className="text-[11px] px-3 py-1 rounded-full" style={{ background: 'rgba(139,111,192,0.08)', color: '#8b6fc0' }}>路演构建</span>
+          </div>
           <div className="flex items-center justify-center gap-4">
             <MagnetButton to="/trials" className="inline-block px-8 py-3.5 rounded-full text-base font-medium cursor-pointer"
               style={{ background: '#c96442', color: '#fff', boxShadow: '0 2px 12px rgba(201,100,66,0.25)' }}>
@@ -263,10 +292,10 @@ export default function Landing() {
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }} transition={{ duration: 0.6 }}>
           <h2 className="text-3xl md:text-5xl font-bold mb-4" style={{ color: '#141413', fontFamily: "'Playfair Display', serif" }}>
-            你的下一次面试，从对话开始
+            你的能力，经得起多维度检验
           </h2>
           <p className="mb-10 text-lg max-w-xl mx-auto" style={{ color: '#5e5d59' }}>
-            不需要投递，不需要内推。用一场 30 分钟的 AI 试炼，让能力自己说话。
+            不需要投递，不需要内推。用一场工作区评估，让真实行为数据替你说话。
           </p>
           <MagnetButton to="/trials" className="inline-block px-8 py-3.5 rounded-full text-base font-medium cursor-pointer"
             style={{ background: '#c96442', color: '#fff', boxShadow: '0 2px 12px rgba(201,100,66,0.25)' }}>

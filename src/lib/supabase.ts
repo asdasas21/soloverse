@@ -10,6 +10,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 })
 
+export type UserRole = 'talent' | 'enterprise'
+
 export type Profile = {
   id: string
   username: string
@@ -17,4 +19,5 @@ export type Profile = {
   avatar_url: string | null
   bio: string
   title: string
+  role: UserRole
 }

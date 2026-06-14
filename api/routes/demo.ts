@@ -214,6 +214,7 @@ router.post('/seed', async (req: Request, res: Response): Promise<void> => {
           display_name: config.displayName,
           title: config.title,
           bio: config.bio,
+          role: type === 'enterprise' ? 'enterprise' : 'talent',
         })
 
         // 创建评估数据（仅非企业端）
@@ -232,6 +233,7 @@ router.post('/seed', async (req: Request, res: Response): Promise<void> => {
           display_name: config.displayName,
           title: config.title,
           bio: config.bio,
+          role: type === 'enterprise' ? 'enterprise' : 'talent',
         })
 
         if (type !== 'enterprise' && config.portrait.curiosity > 0) {

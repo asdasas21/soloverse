@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase } from '../lib/supabase.js'
+import { requireEnterpriseRole } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -82,7 +83,7 @@ router.get('/verify/:certNumber', async (req: Request, res: Response): Promise<v
  * 能力画像 API — 招聘平台集成接口
  * 需要提供 userId（通常由候选人主动分享）
  */
-router.get('/profile/:userId', async (req: Request, res: Response): Promise<void> => {
+router.get('/profile/:userId', requireEnterpriseRole, async (req: Request, res: Response): Promise<void> => {
   const { userId } = req.params
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -164,6 +165,113 @@ router.get('/profile/:userId', async (req: Request, res: Response): Promise<void
       },
     },
   })
+})
+
+/**
+ * GET /api/enterprise/candidates
+ * 获取候选人列表 — HR 浏览所有已认证用户
+ */
+router.get('/candidates', requireEnterpriseRole, async (_req: Request, res: Response): Promise<void> => {
+  // 查询所有有评估数据的用户
+  const { data: evaluations, error } = await supabase
+    .from('evaluations')
+    .select(`
+      user_id,
+      cert_score,
+      cert_level,
+      portrait,
+      created_at,
+      profiles!inner(display_name, title, bio)
+    `)
+    .order('cert_score', { ascending: false })
+    .limit(50)
+
+  if (error) {
+    res.status(500).json({ success: false, error: error.message })
+    return
+  }
+
+  // 去重：每个用户只取最高分的一次评估
+  const seen = new Set<string>()
+  const candidates = (evaluations || [])
+    .filter((e: any) => {
+      if (seen.has(e.user_id)) return false
+      seen.add(e.user_id)
+      return true
+    })
+    .map((e: any) => ({
+      userId: e.user_id,
+      displayName: e.profiles?.display_name || '匿名用户',
+      title: e.profiles?.title || '',
+      bio: e.profiles?.bio || '',
+      certScore: Number(e.cert_score),
+      certLevel: e.cert_level,
+      portrait: e.portrait,
+      evaluatedAt: (e.created_at as string)?.slice(0, 10),
+    }))
+
+  res.json({
+    success: true,
+    data: candidates,
+    total: candidates.length,
+    avgScore: candidates.length > 0
+      ? Math.round(candidates.reduce((sum: number, c: any) => sum + c.certScore, 0) / candidates.length)
+      : 0,
+  })
+})
+
+/**
+ * GET /api/enterprise/trials
+ * 获取企业定制试炼列表
+ */
+router.get('/trials', async (_req: Request, res: Response): Promise<void> => {
+  const { data: trials, error } = await supabase
+    .from('trials')
+    .select('id, title, description, difficulty, duration_hours, category')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    res.status(500).json({ success: false, error: error.message })
+    return
+  }
+
+  res.json({
+    success: true,
+    data: trials || [],
+    total: trials?.length || 0,
+  })
+})
+
+/**
+ * POST /api/enterprise/trials
+ * 企业发布定制试炼
+ */
+router.post('/trials', requireEnterpriseRole, async (req: Request, res: Response): Promise<void> => {
+  const { title, description, difficulty, durationHours, category } = req.body
+
+  if (!title || !description) {
+    res.status(400).json({ success: false, error: '试炼标题和描述不能为空' })
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('trials')
+    .insert({
+      title,
+      description,
+      difficulty: difficulty || '中级',
+      duration_hours: durationHours || 4,
+      category: category || '企业定制',
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    res.status(500).json({ success: false, error: error.message })
+    return
+  }
+
+  res.json({ success: true, data: { id: data.id, message: '试炼发布成功' } })
 })
 
 export default router

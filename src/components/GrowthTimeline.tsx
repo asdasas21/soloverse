@@ -215,7 +215,7 @@ export default function GrowthTimeline({ history }: GrowthTimelineProps) {
             <div className="flex items-start gap-2">
               <TrendingUp size={18} style={{ color: '#4a8c6f', marginTop: 1, flexShrink: 0 }} />
               <p className="text-sm" style={{ color: 'var(--color-text)' }}>
-                你的综合分从{' '}
+                你的试炼分数从{' '}
                 <strong style={{ color: '#4a8c6f' }}>{firstScore}</strong> 提升到了{' '}
                 <strong style={{ color: '#4a8c6f' }}>{lastScore}</strong>，进步了{' '}
                 <strong style={{ color: '#4a8c6f' }}>{delta}</strong> 分

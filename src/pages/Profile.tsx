@@ -62,12 +62,10 @@ function useCountUp(target: number, duration = 1200) {
 }
 
 function ScoreCard({ dim, score, index }: { dim: Dimension; score: number; index: number }) {
-  const displayed = useCountUp(score);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1, duration: 0.4 }}
       className="rounded-xl p-4 border"
       style={{
@@ -85,14 +83,13 @@ function ScoreCard({ dim, score, index }: { dim: Dimension; score: number; index
           {DIM_LABELS[dim]}
         </span>
         <span className="text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-brand)' }}>
-          {displayed}
+          {score}
         </span>
       </div>
       <div className="h-1.5 rounded-full" style={{ background: '#e8e6dc' }}>
         <motion.div
           initial={{ width: 0 }}
-          whileInView={{ width: `${score}%` }}
-          viewport={{ once: true }}
+          animate={{ width: `${score}%` }}
           transition={{ delay: index * 0.1 + 0.3, duration: 0.8, ease: 'easeOut' }}
           className="h-full rounded-full"
           style={{ background: 'var(--color-brand)' }}

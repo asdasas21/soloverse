@@ -24,6 +24,7 @@ const evaluateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: any) => req.userId || req.ip,
+  validate: { xForwardedForHeader: false, default: false },
   message: { success: false, error: '提交次数过多，请稍后再试' },
 })
 

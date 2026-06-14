@@ -69,6 +69,7 @@ const globalLimiter = rateLimit({
   max: 200, // 200 requests per 15 min per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { success: false, error: '请求过于频繁，请稍后再试' },
 })
 app.use('/api/', globalLimiter)
@@ -79,6 +80,7 @@ const chatLimiter = rateLimit({
   max: 10, // 10 chat messages per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { success: false, error: '对话频率过高，请等待一分钟后再试' },
 })
 
@@ -88,6 +90,7 @@ const evaluateLimiter = rateLimit({
   max: 5, // 5 evaluations per hour per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { success: false, error: '提交次数过多，请稍后再试' },
 })
 
@@ -97,6 +100,7 @@ const trialActionLimiter = rateLimit({
   max: 30, // 30 actions per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { success: false, error: '操作频率过高，请稍后再试' },
 })
 

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  supabase,
   rowToPortrait,
   computeCertScore,
   getCertLevel,
@@ -8,7 +8,11 @@ import {
   generateVerificationCode,
   type Portrait,
 } from '../lib/supabase.js'
-import { getAuthenticatedUserId } from '../middleware/auth.js'
+import { getUserClient } from '../middleware/auth.js'
+import { callGLM } from '../lib/glm.js'
+import { ok, err, notFound, unauthorized } from '../lib/response.js'
+import { logError } from '../lib/logger.js'
+import { runCheatDetection } from '../lib/anticheat.js'
 
 const router = Router()
 
@@ -32,45 +36,6 @@ interface AIReport {
     quote: string // 用户对话中的原话
     comment: string // AI 点评
   }>
-}
-
-// --- GLM API 调用（独立实现，不依赖 chat.ts） ---
-
-async function callGLM(
-  messages: Array<{ role: string; content: string }>,
-  options?: { temperature?: number; responseFormat?: 'text' | 'json' }
-): Promise<string> {
-  const apiKey = process.env.ZHIPU_API_KEY
-  const apiBase = process.env.ZHIPU_API_BASE || 'https://open.bigmodel.cn/api/paas/v4'
-  const model = process.env.ZHIPU_MODEL || 'glm-4-flash'
-
-  const body: Record<string, unknown> = {
-    model,
-    messages,
-    temperature: options?.temperature ?? 0.7,
-    max_tokens: 2048,
-  }
-
-  // 智谱AI 支持 JSON 模式
-  if (options?.responseFormat === 'json') {
-    body.response_format = { type: 'json_object' }
-  }
-
-  const res = await fetch(`${apiBase}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!res.ok) {
-    throw new Error(`GLM API error: ${res.status}`)
-  }
-
-  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> }
-  return data.choices[0].message.content
 }
 
 // --- 基于 portrait 分数的 fallback 报告（GLM 不可用时使用） ---
@@ -111,10 +76,11 @@ const REPORT_SYSTEM_PROMPT = `你是一位严谨的技术能力评估专家。�
 
 async function generateAIReport(
   sessionId: string,
-  portrait: Portrait
+  portrait: Portrait,
+  supabaseClient: SupabaseClient
 ): Promise<AIReport> {
   // 从 Supabase 加载 session 的 messages（对话历史）
-  const { data: sessionRow, error } = await supabase
+  const { data: sessionRow, error } = await supabaseClient
     .from('trial_sessions')
     .select('messages')
     .eq('id', sessionId)
@@ -182,16 +148,17 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 
   if (!trialId || !sessionId) {
-    res.status(400).json({ success: false, error: 'trialId and sessionId are required' })
+    err(res, 'trialId and sessionId are required', 400)
     return
   }
 
-  // 鉴权：必须登录
-  const authenticatedUserId = await getAuthenticatedUserId(req)
-  if (!authenticatedUserId) {
-    res.status(401).json({ success: false, error: '需要登录后才能提交评估' })
+  // 鉴权：必须登录 + 创建 per-request client（RLS 生效）
+  const authResult = await getUserClient(req)
+  if (!authResult) {
+    unauthorized(res, '需要登录后才能提交评估')
     return
   }
+  const { client: supabase, userId: authenticatedUserId } = authResult
 
   // Load session from Supabase
   const { data: session, error: sessionError } = await supabase
@@ -201,8 +168,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     .maybeSingle()
 
   if (sessionError) {
-    console.error('[evaluate] session query failed:', sessionError.message)
-    res.status(500).json({ success: false, error: 'Failed to load session' })
+    logError('evaluate', 'session query failed', { error: sessionError.message })
+    err(res, 'Failed to load session', 500)
     return
   }
 
@@ -213,14 +180,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     userId = session.user_id
     // 所有权校验：只有 session 的所有者才能提交评估
     if (userId !== authenticatedUserId) {
-      res.status(403).json({ success: false, error: '无权评估他人的试炼 session' })
+      err(res, '无权评估他人的试炼 session', 403)
       return
     }
     // Use accumulated EMA-smoothed scores directly (no turn bonus hack)
     portrait = rowToPortrait(session)
   } else {
     // session 不存在时返回 404，不再使用硬编码 fallback
-    res.status(404).json({ success: false, error: 'Session not found' })
+    notFound(res, 'Session not found')
     return
   }
 
@@ -233,15 +200,39 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     D5_execution: Math.round(Math.min(100, (portrait.reliability + portrait.lowEgoHighDrive) / 2)),
   }
 
-  const certScore = computeCertScore(portrait)
-  const certLevel = getCertLevel(certScore)
+  let certScore = computeCertScore(portrait)
+  let certLevel = getCertLevel(certScore)
+
+  // 防作弊检测：行为一致性 + 时间异常 + 内容异常
+  const messages = Array.isArray(session.messages) ? session.messages : []
+  const cheatResult = await runCheatDetection(
+    supabase,
+    userId,
+    sessionId,
+    messages,
+    session.turn_count ?? 0,
+    session.started_at ?? null
+  )
+
+  // 高风险：拒绝颁发证书，分数打折
+  if (cheatResult.suspicious) {
+    logError('evaluate', 'cheat detected', {
+      userId,
+      sessionId,
+      riskScore: cheatResult.riskScore,
+      flags: cheatResult.flags,
+    })
+    // 可疑行为：分数降低 30%，不颁发证书
+    certScore = Math.round(certScore * 0.7)
+    certLevel = null
+  }
 
   // 生成 AI 定性评审报告（失败时使用 fallback，不阻断评估流程）
   let aiReport: AIReport
   try {
-    aiReport = await generateAIReport(sessionId, portrait)
-  } catch (err) {
-    console.error('[evaluate] AI report generation failed, using fallback:', err)
+    aiReport = await generateAIReport(sessionId, portrait, supabase)
+  } catch (reportErr) {
+    logError('evaluate', 'AI report generation failed, using fallback', { error: String(reportErr) })
     aiReport = generateFallbackReport(portrait)
   }
 
@@ -264,7 +255,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       .single()
 
     if (evalError) {
-      console.error('[evaluate] insert evaluation failed:', evalError.message)
+      logError('evaluate', 'insert evaluation failed', { error: evalError.message })
     } else if (evaluation) {
       evaluationId = evaluation.id
     }
@@ -285,7 +276,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         })
 
       if (certError) {
-        console.error('[evaluate] insert certificate failed:', certError.message)
+        logError('evaluate', 'insert certificate failed', { error: certError.message })
       }
     }
 
@@ -296,22 +287,24 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       .eq('id', sessionId)
 
     if (updateError) {
-      console.error('[evaluate] update session status failed:', updateError.message)
+      logError('evaluate', 'update session status failed', { error: updateError.message })
     }
   }
 
-  res.json({
-    success: true,
-    data: {
-      trialId,
-      sessionId,
-      dimensionScores,
-      portrait,
-      certScore,
-      certification: certLevel
-        ? { level: certLevel, certScore, issuedAt: new Date().toISOString().slice(0, 10) }
-        : null,
-      report: aiReport,
+  ok(res, {
+    trialId,
+    sessionId,
+    dimensionScores,
+    portrait,
+    certScore,
+    certification: certLevel
+      ? { level: certLevel, certScore, issuedAt: new Date().toISOString().slice(0, 10) }
+      : null,
+    report: aiReport,
+    integrity: {
+      riskScore: cheatResult.riskScore,
+      flags: cheatResult.flags,
+      suspicious: cheatResult.suspicious,
     },
   })
 })

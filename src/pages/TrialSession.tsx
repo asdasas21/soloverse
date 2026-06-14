@@ -172,7 +172,7 @@ export default function TrialSession() {
     try {
       const { submitEvaluation } = await import("@/api/client");
       const result = await submitEvaluation({ sessionId, trialId: id });
-      setEvaluation(result.data || result);
+      setEvaluation(result);
     } catch (err: any) {
       // API 失败时显示错误，不再静默使用假数据
       setSubmitError(err?.message || '评估提交失败，请检查网络或稍后重试');

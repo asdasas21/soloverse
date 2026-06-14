@@ -1,49 +1,10 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 import { getAuthenticatedUserId } from '../middleware/auth.js'
+import { callGLM } from '../lib/glm.js'
+import { logError } from '../lib/logger.js'
 
 const router = Router()
-
-// ============================================================
-// GLM API 调用（独立实现，不依赖 chat.ts）
-// ============================================================
-
-async function callGLM(
-  messages: Array<{ role: string; content: string }>,
-  options?: { temperature?: number; responseFormat?: 'text' | 'json' }
-): Promise<string> {
-  const apiKey = process.env.ZHIPU_API_KEY
-  const apiBase = process.env.ZHIPU_API_BASE || 'https://open.bigmodel.cn/api/paas/v4'
-  const model = process.env.ZHIPU_MODEL || 'glm-4-flash'
-
-  const body: Record<string, unknown> = {
-    model,
-    messages,
-    temperature: options?.temperature ?? 0.7,
-    max_tokens: 2048,
-  }
-
-  // 智谱 AI 支持 JSON 模式
-  if (options?.responseFormat === 'json') {
-    body.response_format = { type: 'json_object' }
-  }
-
-  const res = await fetch(`${apiBase}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!res.ok) {
-    throw new Error(`GLM API error: ${res.status}`)
-  }
-
-  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> }
-  return data.choices[0].message.content
-}
 
 // ============================================================
 // Skill 执行核心逻辑
@@ -186,7 +147,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const { data, error } = await query
 
   if (error) {
-    console.error('[skills] list query failed:', error.message)
+    logError('skills', 'list query failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load skills' })
     return
   }
@@ -226,7 +187,7 @@ router.get('/discover', async (req: Request, res: Response): Promise<void> => {
   const { data, error } = await query.limit(50)
 
   if (error) {
-    console.error('[skills/discover] query failed:', error.message)
+    logError('skills', 'discover query failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load discoverable skills' })
     return
   }
@@ -275,7 +236,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     .maybeSingle()
 
   if (error) {
-    console.error('[skills/:id] query failed:', error.message)
+    logError('skills', 'get skill failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load skill' })
     return
   }
@@ -334,7 +295,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     .single()
 
   if (error || !data) {
-    console.error('[skills] create failed:', error?.message)
+    logError('skills', 'create failed', { error: error?.message })
     res.status(500).json({ success: false, error: 'Failed to create skill' })
     return
   }
@@ -347,7 +308,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     .eq('id', data.id)
 
   if (updateError) {
-    console.error('[skills] update endpoint failed:', updateError.message)
+    logError('skills', 'update endpoint failed', { error: updateError.message })
   }
 
   res.json({ success: true, data: { ...data, endpoint } })
@@ -403,7 +364,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     .maybeSingle()
 
   if (error) {
-    console.error('[skills/:id] update failed:', error.message)
+    logError('skills', 'update skill failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to update skill' })
     return
   }
@@ -436,7 +397,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     .eq('user_id', userId)
 
   if (error) {
-    console.error('[skills/:id] delete failed:', error.message)
+    logError('skills', 'delete skill failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to delete skill' })
     return
   }
@@ -485,7 +446,7 @@ router.post('/:id/publish', async (req: Request, res: Response): Promise<void> =
     .single()
 
   if (error || !data) {
-    console.error('[skills/:id/publish] failed:', error?.message)
+    logError('skills', 'publish skill failed', { error: error?.message })
     res.status(500).json({ success: false, error: 'Failed to publish skill' })
     return
   }
@@ -558,7 +519,7 @@ router.post('/:id/invoke', async (req: Request, res: Response): Promise<void> =>
     const durationMs = Date.now() - startTime
 
     // 1. 记录调用日志到 skill_invocations
-    const { error: logError } = await supabase.from('skill_invocations').insert({
+    const { error: invLogError } = await supabase.from('skill_invocations').insert({
       skill_id: id,
       caller_id: callerId ?? null,
       caller_label: label,
@@ -568,8 +529,8 @@ router.post('/:id/invoke', async (req: Request, res: Response): Promise<void> =>
       status: 'success',
     })
 
-    if (logError) {
-      console.error('[skills/:id/invoke] log failed:', logError.message)
+    if (invLogError) {
+      logError('skills', 'invoke log failed', { error: invLogError.message })
     }
 
     // 2. 更新 skill 的调用次数和最后调用时间（使用 RPC 原子递增防止竞态）
@@ -586,7 +547,7 @@ router.post('/:id/invoke', async (req: Request, res: Response): Promise<void> =>
         })
         .eq('id', id)
       if (fallbackError) {
-        console.error('[skills/:id/invoke] update invoke_count failed:', fallbackError.message)
+        logError('skills', 'update invoke_count failed', { error: fallbackError.message })
       }
     }
 
@@ -613,7 +574,7 @@ router.post('/:id/invoke', async (req: Request, res: Response): Promise<void> =>
       status: 'failed',
     })
 
-    console.error('[skills/:id/invoke] execution failed:', errMsg)
+    logError('skills', 'invoke execution failed', { error: errMsg })
     res.status(500).json({ success: false, error: 'Skill 执行失败，请稍后重试' })
   }
 })
@@ -657,7 +618,7 @@ router.get('/:id/invocations', async (req: Request, res: Response): Promise<void
     .limit(100)
 
   if (error) {
-    console.error('[skills/:id/invocations] query failed:', error.message)
+    logError('skills', 'invocations query failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load invocations' })
     return
   }
@@ -757,7 +718,7 @@ router.post('/from-trial/:evaluationId', async (req: Request, res: Response): Pr
     .single()
 
   if (skillError || !skill) {
-    console.error('[skills/from-trial] create failed:', skillError?.message)
+    logError('skills', 'create from trial failed', { error: skillError?.message })
     res.status(500).json({ success: false, error: 'Failed to create skill from trial' })
     return
   }
@@ -835,7 +796,7 @@ ${JSON.stringify(protocol, null, 2)}
     .single()
 
   if (trialError) {
-    console.error('[skills/:id/promote-to-trial] insert trial failed:', trialError.message)
+    logError('skills', 'promote to trial failed', { error: trialError.message })
     res.status(500).json({ success: false, error: 'Failed to create trial from skill' })
     return
   }
@@ -921,7 +882,7 @@ codingEventsRouter.post('/', async (req: Request, res: Response): Promise<void> 
   const { error } = await supabase.from('coding_events').insert(rows)
 
   if (error) {
-    console.error('[coding-events] insert failed:', error.message)
+    logError('skills', 'coding events insert failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to record coding events' })
     return
   }
@@ -954,7 +915,7 @@ codingEventsRouter.get('/:sessionId', async (req: Request, res: Response): Promi
     .order('occurred_at', { ascending: true })
 
   if (error) {
-    console.error('[coding-events/:sessionId] query failed:', error.message)
+    logError('skills', 'coding events query failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load coding events' })
     return
   }

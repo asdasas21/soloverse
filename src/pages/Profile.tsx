@@ -467,6 +467,34 @@ export default function Profile() {
             <PeerReview certScore={certScore} userId={userId || ''} />
           </div>
         )}
+
+        {/* 增值服务入口 */}
+        {hasEvaluation && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="rounded-xl p-5 border mb-6"
+            style={{
+              background: 'linear-gradient(135deg, rgba(74,140,111,0.05), rgba(201,100,66,0.05))',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <h2 className="text-lg font-bold mb-2 flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-text)' }}>
+              <i className="bi bi-stars" style={{ color: 'var(--color-brand)' }} /> 深度职业诊断
+            </h2>
+            <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+              基于 AI 的个性化职业发展报告，帮你发现隐藏优势、规划学习路径
+            </p>
+            <Link
+              to="/pricing"
+              className="inline-flex items-center gap-1 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              style={{ background: 'var(--color-brand)', color: '#fff' }}
+            >
+              查看增值报告 <ChevronRight size={16} />
+            </Link>
+          </motion.div>
+        )}
       </div>
 
       {/* 能力分享卡片 */}

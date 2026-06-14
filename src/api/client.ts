@@ -28,10 +28,6 @@ async function getAuthToken(): Promise<string | null> {
   return session?.access_token ?? null;
 }
 
-function getUserId(): string {
-  return localStorage.getItem('talentx_user_id') || '';
-}
-
 export async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = await getAuthToken();
   const headers: Record<string, string> = {
@@ -40,11 +36,6 @@ export async function fetchAPI<T>(endpoint: string, options?: RequestInit): Prom
   // 优先使用 JWT token 认证
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  }
-  // 兼容：同时传 user-id（后续可移除）
-  const uid = getUserId();
-  if (uid) {
-    headers['x-user-id'] = uid;
   }
 
   const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -60,19 +51,107 @@ export async function fetchAPI<T>(endpoint: string, options?: RequestInit): Prom
 }
 
 // Trials
-export const getTrials = () => fetchAPI<any[]>('/trials');
-export const getTrial = (id: string) => fetchAPI<any>(`/trials/${id}`);
-export const startTrial = (id: string) => fetchAPI<any>(`/trials/${id}/start`, { method: 'POST' });
+export const getTrials = () => fetchAPI<TrialData[]>('/trials');
+export const getTrial = (id: string) => fetchAPI<TrialData>(`/trials/${id}`);
+export const startTrial = (id: string) => fetchAPI<{ sessionId: string; messages: Array<{ role: string; content: string }>; turnCount: number; greeting: string }>(`/trials/${id}/start`, { method: 'POST' });
 
 // Profile
-export const getProfile = (id: string) => fetchAPI<any>(`/profile/${id}`);
+export const getProfile = (id: string) => fetchAPI<Record<string, unknown>>(`/profile/${id}`);
 
 // Evaluate
-export const submitEvaluation = (data: any) => fetchAPI<any>('/evaluate', {
-  method: 'POST',
-  body: JSON.stringify(data),
-});
+export const submitEvaluation = (data: { trialId: string; sessionId: string }) =>
+  fetchAPI<{
+    trialId: string;
+    sessionId: string;
+    dimensionScores: Record<string, number>;
+    portrait: Record<string, number>;
+    certScore: number;
+    certification: { level: string; certScore: number; issuedAt: string } | null;
+    report: { summary: string; strengths: string[]; improvements: string[]; evidence: Array<{ dimension: string; quote: string; comment: string }> };
+    integrity: { riskScore: number; flags: string[]; suspicious: boolean };
+  }>('/evaluate', { method: 'POST', body: JSON.stringify(data) });
 
 // Certificate
-export const getCertificate = (id: string) => fetchAPI<any>(`/cert/${id}`);
-export const verifyCertificate = (certNumber: string) => fetchAPI<any>(`/cert/${certNumber}`);
+export const getCertificate = (id: string) => fetchAPI<Record<string, unknown>>(`/cert/${id}`);
+export const verifyCertificate = (certNumber: string) => fetchAPI<Record<string, unknown>>(`/cert/${certNumber}`);
+
+// Commerce 类型定义
+export interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  priceYuan: string;
+  seats: number;
+  verifications: number;
+  apiCalls: number;
+  features: string[];
+}
+
+export interface ReportProduct {
+  id: string;
+  name: string;
+  price: number;
+  priceYuan: string;
+  description: string;
+}
+
+export interface SubscriptionStatus {
+  subscription: { plan: string; status: string; seats: number; expiresAt: string | null };
+  usage: { allowed: boolean; used: number; limit: number };
+  planDetails: Omit<Plan, 'id' | 'priceYuan'>;
+}
+
+export interface Order {
+  id: string;
+  orderNo: string;
+  productType: string;
+  productId: string;
+  amount: number;
+  amountYuan: string;
+  status: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface PaymentResult {
+  paid: boolean;
+  orderNo: string;
+  productType: string;
+  productId?: string;
+  plan?: string;
+  planName?: string;
+  expiresAt?: string;
+  nextStep?: string | null;
+}
+
+export interface ReportPurchase {
+  id: string;
+  reportType: string;
+  reportName: string;
+  createdAt: string;
+}
+
+export interface UsageStats {
+  apiCalls: { allowed: boolean; used: number; limit: number };
+  verifications: { allowed: boolean; used: number; limit: number };
+  dailyBreakdown: Record<string, number>;
+  endpointBreakdown: Record<string, number>;
+  billingPeriod: string;
+}
+
+// Commerce — 订阅与支付
+export const getPlans = () => fetchAPI<{ plans: Plan[]; reports: ReportProduct[] }>('/commerce/plans');
+export const getSubscription = () => fetchAPI<SubscriptionStatus>('/commerce/subscription');
+export const createOrder = (productType: string, productId: string) => fetchAPI<Order>('/commerce/orders', {
+  method: 'POST',
+  body: JSON.stringify({ productType, productId }),
+});
+export const payOrder = (orderId: string) => fetchAPI<PaymentResult>(`/commerce/orders/${orderId}/pay`, { method: 'POST' });
+export const getOrders = () => fetchAPI<Order[]>('/commerce/orders');
+export const generateReport = (reportType: string, evaluationId?: string) => fetchAPI<{ reportType: string; content: Record<string, unknown>; cached: boolean }>(`/commerce/reports/${reportType}/generate`, {
+  method: 'POST',
+  body: JSON.stringify({ evaluationId }),
+});
+export const getReports = () => fetchAPI<ReportPurchase[]>('/commerce/reports');
+export const getReport = (type: string) => fetchAPI<{ id: string; reportType: string; content: Record<string, unknown> }>(`/commerce/reports/${type}`);
+export const getUsage = () => fetchAPI<UsageStats>('/commerce/usage');

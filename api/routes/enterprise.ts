@@ -1,20 +1,33 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase } from '../lib/supabase.js'
-import { requireEnterpriseRole } from '../middleware/auth.js'
+import { requireEnterpriseRole, getAuthenticatedUserId } from '../middleware/auth.js'
+import { checkVerificationQuota, recordApiUsage } from './commerce.js'
+import { ok, err, notFound, tooMany } from '../lib/response.js'
+import { logError } from '../lib/logger.js'
 
 const router = Router()
 
 /**
  * GET /api/enterprise/verify/:certNumber
  * 企业端证书验证 — HR 输入证书编号验证候选人能力
- * 公开接口，无需认证
+ * 已登录企业用户受订阅配额限制，匿名用户可验证但记录 IP 限流
  */
 router.get('/verify/:certNumber', async (req: Request, res: Response): Promise<void> => {
   const { certNumber } = req.params
 
   if (!certNumber) {
-    res.status(400).json({ success: false, error: '证书编号不能为空' })
+    err(res, '证书编号不能为空')
     return
+  }
+
+  // 已登录用户检查验证配额
+  const userId = await getAuthenticatedUserId(req)
+  if (userId) {
+    const quota = await checkVerificationQuota(userId)
+    if (!quota.allowed) {
+      tooMany(res, `本月验证次数已用尽（${quota.used}/${quota.limit}），请升级订阅计划`)
+      return
+    }
   }
 
   const { data: cert, error } = await supabase
@@ -35,21 +48,23 @@ router.get('/verify/:certNumber', async (req: Request, res: Response): Promise<v
     .maybeSingle()
 
   if (error || !cert) {
-    res.status(404).json({ success: false, error: '证书不存在或编号无效' })
+    notFound(res, '证书不存在或编号无效')
     return
   }
 
   if (cert.is_revoked) {
-    res.json({
-      success: true,
-      data: {
-        valid: false,
-        revoked: true,
-        certNumber: cert.cert_number,
-        message: '该证书已被撤销',
-      },
+    ok(res, {
+      valid: false,
+      revoked: true,
+      certNumber: cert.cert_number,
+      message: '该证书已被撤销',
     })
     return
+  }
+
+  // 记录已登录用户的验证用量
+  if (userId) {
+    recordApiUsage(userId, '/api/enterprise/verify').catch(() => {})
   }
 
   // 返回企业验证所需的关键信息
@@ -59,22 +74,19 @@ router.get('/verify/:certNumber', async (req: Request, res: Response): Promise<v
     C3: '专家认证',
   }
 
-  res.json({
-    success: true,
-    data: {
-      valid: true,
-      revoked: false,
-      certNumber: cert.cert_number,
-      candidateName: (cert.profiles as any)?.display_name || '未知',
-      candidateTitle: (cert.profiles as any)?.title || '',
-      trialName: (cert.trials as any)?.title || '',
-      level: cert.level,
-      levelName: levelNames[cert.level] || cert.level,
-      certScore: Number(cert.cert_score),
-      portrait: cert.portrait,
-      issuedAt: (cert.issued_at as string)?.slice(0, 10),
-      verificationUrl: `https://soloverse.vercel.app/cert/${cert.cert_number}`,
-    },
+  ok(res, {
+    valid: true,
+    revoked: false,
+    certNumber: cert.cert_number,
+    candidateName: (cert.profiles as any)?.display_name || '未知',
+    candidateTitle: (cert.profiles as any)?.title || '',
+    trialName: (cert.trials as any)?.title || '',
+    level: cert.level,
+    levelName: levelNames[cert.level] || cert.level,
+    certScore: Number(cert.cert_score),
+    portrait: cert.portrait,
+    issuedAt: (cert.issued_at as string)?.slice(0, 10),
+    verificationUrl: `https://soloverse.vercel.app/cert/${cert.cert_number}`,
   })
 })
 
@@ -88,7 +100,7 @@ router.get('/profile/:userId', requireEnterpriseRole, async (req: Request, res: 
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(userId)) {
-    res.status(400).json({ success: false, error: '无效的用户 ID' })
+    err(res, '无效的用户 ID')
     return
   }
 
@@ -123,46 +135,43 @@ router.get('/profile/:userId', requireEnterpriseRole, async (req: Request, res: 
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
-  res.json({
-    success: true,
-    data: {
-      profile: {
-        displayName: profile?.display_name || '匿名用户',
-        title: profile?.title || '',
-        bio: profile?.bio || '',
-      },
-      latestEvaluation: evaluation
-        ? {
-            portrait: evaluation.portrait,
-            certScore: Number(evaluation.cert_score),
-            certLevel: evaluation.cert_level,
-            summary: evaluation.summary,
-            evaluatedAt: (evaluation.created_at as string)?.slice(0, 10),
-          }
-        : null,
-      certificates: (certificates || []).map((c: any) => ({
-        certNumber: c.cert_number,
-        level: c.level,
-        certScore: Number(c.cert_score),
-        trialId: c.trial_id,
-        issuedAt: (c.issued_at as string)?.slice(0, 10),
-        verifyUrl: `/api/enterprise/verify/${c.cert_number}`,
-      })),
-      trialHistory: (sessions || []).map((s: any) => ({
-        trialId: s.trial_id,
-        status: s.status,
-        turnCount: s.turn_count,
-        date: (s.created_at as string)?.slice(0, 10),
-      })),
-      stats: {
-        totalTrials: sessions?.length || 0,
-        completedTrials: sessions?.filter((s: any) => s.status === 'evaluated').length || 0,
-        totalCertificates: certificates?.length || 0,
-        highestLevel: certificates?.reduce((max: string, c: any) => {
-          const order = { C3: 3, C2: 2, C1: 1 }
-          return (order[c.level as keyof typeof order] || 0) > (order[max as keyof typeof order] || 0) ? c.level : max
-        }, null as string) || null,
-      },
+  ok(res, {
+    profile: {
+      displayName: profile?.display_name || '匿名用户',
+      title: profile?.title || '',
+      bio: profile?.bio || '',
+    },
+    latestEvaluation: evaluation
+      ? {
+          portrait: evaluation.portrait,
+          certScore: Number(evaluation.cert_score),
+          certLevel: evaluation.cert_level,
+          summary: evaluation.summary,
+          evaluatedAt: (evaluation.created_at as string)?.slice(0, 10),
+        }
+      : null,
+    certificates: (certificates || []).map((c: any) => ({
+      certNumber: c.cert_number,
+      level: c.level,
+      certScore: Number(c.cert_score),
+      trialId: c.trial_id,
+      issuedAt: (c.issued_at as string)?.slice(0, 10),
+      verifyUrl: `/api/enterprise/verify/${c.cert_number}`,
+    })),
+    trialHistory: (sessions || []).map((s: any) => ({
+      trialId: s.trial_id,
+      status: s.status,
+      turnCount: s.turn_count,
+      date: (s.created_at as string)?.slice(0, 10),
+    })),
+    stats: {
+      totalTrials: sessions?.length || 0,
+      completedTrials: sessions?.filter((s: any) => s.status === 'evaluated').length || 0,
+      totalCertificates: certificates?.length || 0,
+      highestLevel: certificates?.reduce((max: string, c: any) => {
+        const order = { C3: 3, C2: 2, C1: 1 }
+        return (order[c.level as keyof typeof order] || 0) > (order[max as keyof typeof order] || 0) ? c.level : max
+      }, null as string) || null,
     },
   })
 })
@@ -187,7 +196,8 @@ router.get('/candidates', requireEnterpriseRole, async (_req: Request, res: Resp
     .limit(50)
 
   if (error) {
-    res.status(500).json({ success: false, error: error.message })
+    logError('enterprise', 'candidates query failed', { error: error.message })
+    err(res, 'Failed to load candidates', 500)
     return
   }
 
@@ -210,9 +220,8 @@ router.get('/candidates', requireEnterpriseRole, async (_req: Request, res: Resp
       evaluatedAt: (e.created_at as string)?.slice(0, 10),
     }))
 
-  res.json({
-    success: true,
-    data: candidates,
+  ok(res, {
+    candidates,
     total: candidates.length,
     avgScore: candidates.length > 0
       ? Math.round(candidates.reduce((sum: number, c: any) => sum + c.certScore, 0) / candidates.length)
@@ -231,15 +240,12 @@ router.get('/trials', async (_req: Request, res: Response): Promise<void> => {
     .order('created_at', { ascending: false })
 
   if (error) {
-    res.status(500).json({ success: false, error: error.message })
+    logError('enterprise', 'trials query failed', { error: error.message })
+    err(res, 'Failed to load trials', 500)
     return
   }
 
-  res.json({
-    success: true,
-    data: trials || [],
-    total: trials?.length || 0,
-  })
+  ok(res, { trials: trials || [], total: trials?.length || 0 })
 })
 
 /**
@@ -250,7 +256,7 @@ router.post('/trials', requireEnterpriseRole, async (req: Request, res: Response
   const { title, description, difficulty, durationHours, category } = req.body
 
   if (!title || !description) {
-    res.status(400).json({ success: false, error: '试炼标题和描述不能为空' })
+    err(res, '试炼标题和描述不能为空')
     return
   }
 
@@ -267,11 +273,12 @@ router.post('/trials', requireEnterpriseRole, async (req: Request, res: Response
     .single()
 
   if (error) {
-    res.status(500).json({ success: false, error: error.message })
+    logError('enterprise', 'create trial failed', { error: error.message })
+    err(res, 'Failed to create trial', 500)
     return
   }
 
-  res.json({ success: true, data: { id: data.id, message: '试炼发布成功' } })
+  ok(res, { id: data.id, message: '试炼发布成功' })
 })
 
 export default router

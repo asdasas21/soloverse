@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase } from '../lib/supabase.js'
+import { logError } from '../lib/logger.js'
 
 const router = Router()
 
@@ -36,7 +37,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const { data, error } = await query.maybeSingle()
 
   if (error) {
-    console.error('[cert] query failed:', error.message)
+    logError('cert', 'query failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load certificate' })
     return
   }

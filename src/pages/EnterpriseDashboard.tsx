@@ -762,14 +762,23 @@ export default function EnterpriseDashboard() {
       style={{ background: '#faf9f5', fontFamily: "'DM Sans', sans-serif" }}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8">
-        {/* 返回首页 */}
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 mb-4 text-sm"
-          style={{ color: '#5e5d59' }}
-        >
-          <i className="bi bi-arrow-left" /> 返回首页
-        </Link>
+        {/* 返回首页 + 订阅管理 */}
+        <div className="flex items-center justify-between mb-4">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-sm"
+            style={{ color: '#5e5d59' }}
+          >
+            <i className="bi bi-arrow-left" /> 返回首页
+          </Link>
+          <Link
+            to="/pricing"
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors"
+            style={{ background: '#c96442', color: '#fff' }}
+          >
+            <i className="bi bi-gear-wide-connected" /> 订阅管理
+          </Link>
+        </div>
 
         {/* 页面标题 */}
         <motion.div

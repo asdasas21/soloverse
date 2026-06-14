@@ -1,47 +1,9 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase, rowToPortrait, portraitToRow, type Portrait } from '../lib/supabase.js'
+import { callGLM } from '../lib/glm.js'
+import { logError } from '../lib/logger.js'
 
 const router = Router()
-
-// --- GLM API Call ---
-
-async function callGLM(
-  messages: Array<{ role: string; content: string }>,
-  options?: { temperature?: number; responseFormat?: 'text' | 'json' }
-): Promise<string> {
-  const apiKey = process.env.ZHIPU_API_KEY
-  const apiBase = process.env.ZHIPU_API_BASE || 'https://open.bigmodel.cn/api/paas/v4'
-  const model = process.env.ZHIPU_MODEL || 'glm-4-flash'
-
-  const body: Record<string, unknown> = {
-    model,
-    messages,
-    temperature: options?.temperature ?? 0.7,
-    max_tokens: 1024,
-  }
-
-  // 智谱AI 支持 response_format JSON 模式
-  if (options?.responseFormat === 'json') {
-    body.response_format = { type: 'json_object' }
-  }
-
-  const res = await fetch(`${apiBase}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`GLM API error: ${res.status} ${err}`)
-  }
-
-  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> }
-  return data.choices[0].message.content
-}
 
 // --- Default System Prompt (fallback when trial has no custom prompt) ---
 
@@ -242,7 +204,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     .maybeSingle()
 
   if (sessionError) {
-    console.error('[chat] session query failed:', sessionError.message)
+    logError('chat', 'session query failed', { error: sessionError.message })
     res.status(500).json({ success: false, error: 'Failed to load session' })
     return
   }
@@ -313,7 +275,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     agentReply = await callGLM(glmMessages)
   } catch (err) {
-    console.error('[chat] GLM conversation failed:', err)
+    logError('chat', 'GLM conversation failed', { error: String(err) })
     agentReply = fallbackResponse(message)
   }
 
@@ -326,7 +288,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     evaluation = await evaluateConversation(message, agentReply, messages, scores)
     console.log(`[chat] AI evaluation: ${JSON.stringify(evaluation)}`)
   } catch (err) {
-    console.error('[chat] GLM evaluation failed, using fallback:', err)
+    logError('chat', 'GLM evaluation failed, using fallback', { error: String(err) })
     evaluation = fallbackEvaluation(scores, message)
   }
 
@@ -348,7 +310,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     .eq('id', sessionId)
 
   if (updateError) {
-    console.error('[chat] session update failed:', updateError.message)
+    logError('chat', 'session update failed', { error: updateError.message })
   }
 
   // Build SSE events

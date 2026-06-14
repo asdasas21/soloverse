@@ -15,6 +15,7 @@ import {
   type Portrait,
 } from './lib/supabase.js'
 import { getAuthenticatedUserId } from './middleware/auth.js'
+import { logError } from './lib/logger.js'
 
 const router = Router()
 
@@ -185,7 +186,7 @@ async function getUserProfile(userId: string) {
     .eq('user_id', userId)
 
   if (countError) {
-    console.error('[mcp] 统计试炼次数失败:', countError.message)
+    logError('mcp', 'trial count failed', { error: countError.message })
   }
 
   return {
@@ -406,7 +407,7 @@ async function invokeSkill(
   // 更新 skill 的调用次数（使用 RPC 原子递增防止竞态）
   const { error: rpcError } = await supabase.rpc('increment_invoke_count', { skill_id: skillId })
   if (rpcError) {
-    console.error('[mcp] increment_invoke_count failed:', rpcError.message)
+    logError('mcp', 'increment_invoke_count failed', { error: rpcError.message })
   }
 
   return {

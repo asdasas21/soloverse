@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase, computeCertScore, getCertLevel, type Portrait } from '../lib/supabase.js'
+import { logError } from '../lib/logger.js'
 
 const router = Router()
 
@@ -25,7 +26,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     .maybeSingle()
 
   if (profileError) {
-    console.error('[profile] query failed:', profileError.message)
+    logError('profile', 'query failed', { error: profileError.message })
     res.status(500).json({ success: false, error: 'Failed to load profile' })
     return
   }
@@ -49,7 +50,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   let certLevel: ReturnType<typeof getCertLevel> = null
 
   if (evalError) {
-    console.error('[profile] evaluation query failed:', evalError.message)
+    logError('profile', 'evaluation query failed', { error: evalError.message })
   } else if (evaluation && evaluation.portrait) {
     portrait = evaluation.portrait as Portrait
     certScore = evaluation.cert_score ?? computeCertScore(portrait)
@@ -69,7 +70,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       .maybeSingle()
 
     if (certError) {
-      console.error('[profile] certificate query failed:', certError.message)
+      logError('profile', 'certificate query failed', { error: certError.message })
     } else if (cert) {
       certification = {
         level: cert.level,
@@ -94,7 +95,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
   let trialHistory: Array<{ name: string; date: string; score: number }> = []
   if (sessionsError) {
-    console.error('[profile] sessions query failed:', sessionsError.message)
+    logError('profile', 'sessions query failed', { error: sessionsError.message })
   } else if (sessions && sessions.length > 0) {
     // Fetch trial titles for the sessions
     const trialIds = Array.from(new Set(sessions.map((s) => s.trial_id)))

@@ -1,15 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ToastProvider } from '@/components/Toast'
 import Landing from '@/pages/Landing'
-import Trials from '@/pages/Trials'
-import TrialSession from '@/pages/TrialSession'
-import Profile from '@/pages/Profile'
-import Certificate from '@/pages/Certificate'
 import Auth from '@/pages/Auth'
-import Leaderboard from '@/pages/Leaderboard'
-import EnterpriseDashboard from '@/pages/EnterpriseDashboard'
-import SkillStudio from '@/pages/SkillStudio'
+
+// Lazy-load non-critical routes for smaller initial bundle
+const Trials = lazy(() => import('@/pages/Trials'))
+const TrialSession = lazy(() => import('@/pages/TrialSession'))
+const Profile = lazy(() => import('@/pages/Profile'))
+const Certificate = lazy(() => import('@/pages/Certificate'))
+const Leaderboard = lazy(() => import('@/pages/Leaderboard'))
+const EnterpriseDashboard = lazy(() => import('@/pages/EnterpriseDashboard'))
+const SkillStudio = lazy(() => import('@/pages/SkillStudio'))
+const Pricing = lazy(() => import('@/pages/Pricing'))
 import { useAuthStore } from '@/store/authStore'
 
 /** 路由守卫：未登录用户重定向到 /auth */
@@ -64,6 +68,11 @@ function AppInner() {
   }
 
   return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f4ed' }}>
+        <div className="animate-pulse text-[#87867f]">加载中...</div>
+      </div>
+    }>
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/auth" element={<Auth />} />
@@ -74,17 +83,21 @@ function AppInner() {
       <Route path="/leaderboard" element={<Leaderboard />} />
       <Route path="/enterprise" element={<EnterpriseRoute><EnterpriseDashboard /></EnterpriseRoute>} />
       <Route path="/skills" element={<ProtectedRoute><SkillStudio /></ProtectedRoute>} />
+      <Route path="/pricing" element={<ProtectedRoute><Pricing /></ProtectedRoute>} />
       <Route path="*" element={<div className="min-h-screen flex items-center justify-center bg-[#f5f4ed] text-[#5e5d59]">404 - 页面不存在</div>} />
     </Routes>
+    </Suspense>
   )
 }
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <AppInner />
-      </Router>
+      <ToastProvider>
+        <Router>
+          <AppInner />
+        </Router>
+      </ToastProvider>
     </ErrorBoundary>
   )
 }

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 import { getAuthenticatedUserId } from '../middleware/auth.js'
+import { logError } from '../lib/logger.js'
 
 const router = Router()
 
@@ -76,7 +77,7 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     .eq('status', 'active')
 
   if (error) {
-    console.error('[trials] query failed:', error.message)
+    logError('trials', 'query failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load trials' })
     return
   }
@@ -104,7 +105,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     .maybeSingle()
 
   if (error) {
-    console.error('[trials/:id] query failed:', error.message)
+    logError('trials', 'get trial failed', { error: error.message })
     res.status(500).json({ success: false, error: 'Failed to load trial' })
     return
   }
@@ -145,7 +146,7 @@ router.post('/:id/start', async (req: Request, res: Response): Promise<void> => 
     .maybeSingle()
 
   if (trialError) {
-    console.error('[trials/:id/start] trial query failed:', trialError.message)
+    logError('trials', 'start trial query failed', { error: trialError.message })
     res.status(500).json({ success: false, error: 'Failed to load trial' })
     return
   }
@@ -157,7 +158,7 @@ router.post('/:id/start', async (req: Request, res: Response): Promise<void> => 
 
   // Require a user id (for testing phase, from header)
   if (!userId) {
-    res.status(400).json({ success: false, error: 'x-user-id header is required' })
+    res.status(400).json({ success: false, error: '需要登录后才能开始试炼' })
     return
   }
 
@@ -173,7 +174,7 @@ router.post('/:id/start', async (req: Request, res: Response): Promise<void> => 
     .maybeSingle()
 
   if (existingError) {
-    console.error('[trials/:id/start] existing session query failed:', existingError.message)
+    logError('trials', 'start session check failed', { error: existingError.message })
     res.status(500).json({ success: false, error: 'Failed to check existing session' })
     return
   }
@@ -208,7 +209,7 @@ router.post('/:id/start', async (req: Request, res: Response): Promise<void> => 
       .single()
 
     if (createError || !created) {
-      console.error('[trials/:id/start] create session failed:', createError?.message)
+      logError('trials', 'create session failed', { error: createError?.message })
       res.status(500).json({ success: false, error: 'Failed to start session' })
       return
     }

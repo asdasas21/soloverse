@@ -20,8 +20,9 @@ import certRoutes from './routes/cert.js'
 import leaderboardRoutes from './routes/leaderboard.js'
 import enterpriseRoutes from './routes/enterprise.js'
 import skillsRouter, { codingEventsRouter } from './routes/skills.js'
+import commerceRouter from './routes/commerce.js'
 import mcpRouter from './mcp-server.js'
-import demoRoutes from './routes/demo.js'
+import { logRequest, logError } from './lib/logger.js'
 
 dotenv.config({ override: true })
 
@@ -51,7 +52,7 @@ app.use(cors({
     }
   },
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
-  allowedHeaders: ['Content-Type', 'x-user-id', 'authorization'],
+  allowedHeaders: ['Content-Type', 'authorization'],
   credentials: true,
 }))
 
@@ -100,8 +101,19 @@ app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/enterprise', enterpriseRoutes)
 app.use('/api/skills', skillsRouter)
 app.use('/api/coding-events', codingEventsRouter)
+app.use('/api/commerce', commerceRouter)
 app.use('/api/mcp', mcpRouter)
-app.use('/api/demo', demoRoutes)
+
+/**
+ * Request logging middleware
+ */
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const start = Date.now()
+  _res.on('finish', () => {
+    logRequest(req.method, req.path, _res.statusCode, Date.now() - start, req.ip)
+  })
+  next()
+})
 
 /**
  * Health check
@@ -114,7 +126,7 @@ app.use('/api/health', (_req: Request, res: Response) => {
  * Error handler
  */
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[server] Unhandled error:', error.message)
+  logError('server', error.message, { stack: error.stack })
   res.status(500).json({ success: false, error: '服务器内部错误' })
 })
 

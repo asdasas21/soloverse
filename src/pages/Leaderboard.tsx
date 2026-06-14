@@ -96,6 +96,7 @@ export default function Leaderboard() {
                             {r.displayName.slice(0, 2)}
                           </div>
                           <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
+                          {r.title && <div className="text-xs truncate" style={{ color: '#87867f' }}>{r.title}</div>}
                         </div>
                       ) : (
                         <Link to={`/profile/${r.userId}`} className="block">
@@ -103,6 +104,7 @@ export default function Leaderboard() {
                             {r.displayName.slice(0, 2)}
                           </div>
                           <div className="text-sm font-medium truncate" style={{ color: '#141413' }}>{r.displayName}</div>
+                          {r.title && <div className="text-xs truncate" style={{ color: '#87867f' }}>{r.title}</div>}
                         </Link>
                       )}
                       <div className="text-lg font-bold mt-1" style={{ color: colors[i] }}>{r.certScore}</div>

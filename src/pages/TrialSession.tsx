@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
-import { Send, Clock, Trophy, ArrowLeft, Bot, Award, ChevronRight, Sparkles, Zap, TrendingUp } from "lucide-react";
+import { Send, Clock, Trophy, ArrowLeft, Bot, Award, ChevronRight, Sparkles, Zap, TrendingUp, X } from "lucide-react";
 import { useTrialStore } from "@/store/trialStore";
 import { startTrial, submitEvaluation, getTrial, type TrialData } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
@@ -22,6 +22,15 @@ const DIM_ICONS: Record<string, string> = {
   diverseThinking: "bi-palette",
   uncertaintyTolerance: "bi-cloud-fog",
   lowEgoHighDrive: "bi-rocket-takeoff",
+};
+
+const DIM_DESCRIPTIONS: Record<string, string> = {
+  curiosity: "对新知识、新领域的探索欲望，主动提问并深入追问",
+  reliability: "做事靠谱，承诺的事情能按时交付且质量稳定",
+  factChecking: "不轻信信息，习惯溯源验证、用数据说话",
+  diverseThinking: "能从多角度分析问题，包容不同观点，提出创新方案",
+  uncertaintyTolerance: "面对模糊和不确定的情况不焦虑，能快速试错、从容应对",
+  lowEgoHighDrive: "虚心接受反馈，不被自尊心阻碍，持续精进、目标导向",
 };
 
 // ── 顶部进度条 ──
@@ -54,15 +63,18 @@ function ThinkingOrb() {
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
-      <div className="flex gap-1">
-        {[0, 1, 2].map((i) => (
-          <motion.span
-            key={i}
-            className="w-1 h-1 rounded-full bg-[#c96442]"
-            animate={{ opacity: [0.2, 1, 0.2], y: [0, -3, 0] }}
-            transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
-          />
-        ))}
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className="w-1 h-1 rounded-full bg-[#c96442]"
+              animate={{ opacity: [0.2, 1, 0.2], y: [0, -3, 0] }}
+              transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
+            />
+          ))}
+        </div>
+        <span className="text-xs text-[#87867f]">正在思考...</span>
       </div>
     </div>
   );
@@ -110,7 +122,7 @@ function FloatingScoreCard({ scores }: { scores: Record<string, number> }) {
           transition={{ delay: i * 0.08 }}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs flex items-center gap-1" style={{ color: "#5e5d59" }}>
+            <span className="text-xs flex items-center gap-1 cursor-help" style={{ color: "#5e5d59" }} title={DIM_DESCRIPTIONS[key]}>
               <i className={`bi ${DIM_ICONS[key]}`} style={{ fontSize: "12px" }} />
               {DIM_LABELS[key] || key}
             </span>
@@ -242,7 +254,6 @@ export default function TrialSession() {
                 setStreamingText("");
                 setTyping(false);
                 if (agentMessage) addMessage("agent", agentMessage);
-                setTurnCount((c) => c + 1);
               }
             } catch { /* SSE parse skip */ }
           }
@@ -251,7 +262,6 @@ export default function TrialSession() {
       if (agentMessage && isTyping) {
         setStreamingText(""); setTyping(false);
         addMessage("agent", agentMessage);
-        setTurnCount((c) => c + 1);
       }
     } catch {
       setStreamingText(""); setTyping(false);
@@ -264,6 +274,7 @@ export default function TrialSession() {
     const msg = input.trim();
     addMessage("user", msg);
     setInput("");
+    setTurnCount((c) => c + 1);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     sendChatMessage(msg);
   };
@@ -658,7 +669,7 @@ export default function TrialSession() {
               className="w-72 border-l overflow-y-auto flex-shrink-0 hidden md:block"
               style={{ background: "rgba(250,249,245,0.6)", backdropFilter: "blur(12px)", borderColor: "rgba(232,230,220,0.6)" }}
             >
-              <div className="p-5 space-y-5">
+              <div className="p-5 space-y-5" id="ability-panel-content">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles size={14} style={{ color: "#c96442" }} />
@@ -809,6 +820,66 @@ export default function TrialSession() {
                 Enter 发送 · Shift+Enter 换行
               </p>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 移动端能力面板抽屉 */}
+      <AnimatePresence>
+        {showPanel && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowPanel(false)}
+            className="md:hidden fixed inset-0 z-50"
+            style={{ background: "rgba(0,0,0,0.4)" }}
+          >
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] overflow-y-auto"
+              style={{ background: "rgba(250,249,245,0.95)", backdropFilter: "blur(12px)" }}
+            >
+              <div className="p-5 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={14} style={{ color: "#c96442" }} />
+                    <h2 className="text-sm font-semibold" style={{ color: "#141413" }}>试炼概览</h2>
+                  </div>
+                  <button onClick={() => setShowPanel(false)} className="p-1 rounded-lg">
+                    <X size={18} style={{ color: "#87867f" }} />
+                  </button>
+                </div>
+                <p className="text-xs leading-relaxed" style={{ color: "#5e5d59" }}>{trialData.description}</p>
+
+                {/* AI 导师角色信息 */}
+                {trialData?.agentPersona && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className={`bi ${trialData.agentPersona.avatar}`} style={{ fontSize: "12px", color: "#c96442" }} />
+                      <h3 className="text-xs font-semibold" style={{ color: "#141413" }}>AI 导师</h3>
+                    </div>
+                    <div className="rounded-lg p-2.5" style={{ background: "rgba(201,100,66,0.06)" }}>
+                      <div className="text-sm font-semibold" style={{ color: "#c96442" }}>{trialData.agentPersona.name}</div>
+                      <div className="text-[10px] mb-1" style={{ color: "#87867f" }}>{trialData.agentPersona.title}</div>
+                      <p className="text-[11px]" style={{ color: "#5e5d59" }}>{trialData.agentPersona.personality}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 评分维度 */}
+                {liveScores && Object.keys(liveScores).length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold mb-2" style={{ color: "#141413" }}>实时能力</h3>
+                    <FloatingScoreCard scores={liveScores} />
+                  </div>
+                )}
+              </div>
+            </motion.aside>
           </motion.div>
         )}
       </AnimatePresence>

@@ -202,6 +202,11 @@ export default function AbilityDNA({ portrait, certScore }: AbilityDNAProps) {
           {dnaCode}
         </span>
       </div>
+
+      {/* DNA 编码解释 */}
+      <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted, #87867f)', lineHeight: 1.5 }}>
+        DNA 编码由 6 个能力维度首字母 + 两位分数组成（如 C72=好奇心 72 分），是你独一无二的能力指纹
+      </p>
     </motion.section>
   );
 }

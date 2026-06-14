@@ -26,6 +26,15 @@ const DIM_LABELS: Record<Dimension, string> = {
   lowEgoHighDrive: '低ego高自驱',
 };
 
+const DIM_DESCRIPTIONS: Record<Dimension, string> = {
+  curiosity: '对新知识、新领域的探索欲望，主动提问并深入追问',
+  reliability: '做事靠谱，承诺的事情能按时交付且质量稳定',
+  factChecking: '不轻信信息，习惯溯源验证、用数据说话',
+  diverseThinking: '能从多角度分析问题，包容不同观点，提出创新方案',
+  uncertaintyTolerance: '面对模糊和不确定的情况不焦虑，能快速试错、从容应对',
+  lowEgoHighDrive: '虚心接受反馈，不被自尊心阻碍，持续精进、目标导向',
+};
+
 const DIM_TAGS: Record<Dimension, string[]> = {
   curiosity: ['主动提问', '跨领域探索', '深度追问'],
   reliability: ['按时交付', '承诺兑现', '质量稳定'],
@@ -68,7 +77,11 @@ function ScoreCard({ dim, score, index }: { dim: Dimension; score: number; index
       }}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+        <span
+          className="text-sm font-medium cursor-help"
+          style={{ color: 'var(--color-text-secondary)', borderBottom: '1px dotted var(--color-text-muted)', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
+          title={DIM_DESCRIPTIONS[dim]}
+        >
           {DIM_LABELS[dim]}
         </span>
         <span className="text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-brand)' }}>
@@ -229,9 +242,11 @@ export default function Profile() {
               </span>
             </div>
           </div>
-          <Link to={`/cert/${userId}`} className="shrink-0">
-            <ChevronRight size={20} style={{ color: 'var(--color-text-tertiary)' }} />
-          </Link>
+          {certLevel && (
+            <Link to={`/cert/${userId}`} className="shrink-0" title="查看证书">
+              <ChevronRight size={20} style={{ color: 'var(--color-text-tertiary)' }} />
+            </Link>
+          )}
           {hasEvaluation && (
             <button
               onClick={() => setShowShareCard(true)}
@@ -243,83 +258,12 @@ export default function Profile() {
           )}
         </motion.div>
 
-        {/* Radar Chart */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.15 }}
-          className="rounded-xl p-4 mb-6 border"
-          style={{
-            background: 'var(--color-card)',
-            borderColor: 'var(--color-border)',
-            boxShadow: '0px 0px 0px 1px rgba(0,0,0,0.06)',
-          }}
-        >
-          <h2 className="text-lg font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-text)' }}>
-            能力雷达图
-          </h2>
-          <div className="w-full aspect-square max-w-sm mx-auto">
-            <RadarChartWrapper data={radarData} title="能力画像" animate />
-          </div>
-        </motion.div>
-
-        {/* 能力 DNA */}
-        <div className="mb-6">
-          <AbilityDNA portrait={portrait} certScore={certScore} />
-        </div>
-
-        {/* Dimension Detail Cards */}
-        <div className="grid grid-cols-2 gap-3 mb-8">
-          {dims.map((d, i) => (
-            <ScoreCard key={d} dim={d} score={portrait[d]} index={i} />
-          ))}
-        </div>
-
-        {/* Trial History */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mb-8"
-        >
-          <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-text)' }}>
-            <BookOpen size={18} /> 评测历史
-          </h2>
-          <div className="space-y-2">
-            {trialHistory.map((t: any) => (
-              <div
-                key={t.name}
-                className="flex items-center justify-between rounded-lg px-4 py-3 border"
-                style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-              >
-                <div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{t.name}</div>
-                  <div className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>{t.date}</div>
-                </div>
-                <span className="font-bold" style={{ color: 'var(--color-brand)' }}>{t.score}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* 成长时间线 */}
-        {trialHistory.length >= 1 && (
-          <div className="mb-8">
-            <GrowthTimeline history={trialHistory} />
-          </div>
-        )}
-
-        {/* 赛季徽章 + 能力保鲜度 */}
-        <div className="mb-8">
-          <SeasonBadge freshness={apiData?.abilityFreshness} />
-        </div>
-
-        {/* Certification */}
+        {/* Certification — 提前展示，让用户第一眼看到核心结果 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-xl p-5 border"
+          className="rounded-xl p-5 border mb-6"
           style={{
             background: 'var(--color-card)',
             borderColor: 'var(--color-border)',
@@ -365,7 +309,115 @@ export default function Profile() {
               尚未达到认证门槛（综合分 ≥ 60），继续努力！
             </p>
           )}
+
+          {/* C1/C2/C3 等级说明 */}
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--color-border)' }}>
+            <p className="text-xs mb-2" style={{ color: 'var(--color-text-tertiary)' }}>认证等级说明：</p>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(123,155,110,0.15)', color: '#7b9b6e' }}>C1</span>
+                <span style={{ color: 'var(--color-text-tertiary)' }}>基础级 ≥60</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(217,119,87,0.15)', color: '#d97757' }}>C2</span>
+                <span style={{ color: 'var(--color-text-tertiary)' }}>专业级 ≥75</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(201,100,66,0.15)', color: '#c96442' }}>C3</span>
+                <span style={{ color: 'var(--color-text-tertiary)' }}>专家级 ≥88</span>
+              </div>
+            </div>
+          </div>
         </motion.div>
+
+        {/* Radar Chart */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.15 }}
+          className="rounded-xl p-4 mb-6 border"
+          style={{
+            background: 'var(--color-card)',
+            borderColor: 'var(--color-border)',
+            boxShadow: '0px 0px 0px 1px rgba(0,0,0,0.06)',
+          }}
+        >
+          <h2 className="text-lg font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-text)' }}>
+            能力雷达图
+          </h2>
+          <div className="w-full aspect-square max-w-sm mx-auto">
+            <RadarChartWrapper data={radarData} title="能力画像" animate />
+          </div>
+        </motion.div>
+
+        {/* 能力 DNA */}
+        <div className="mb-6">
+          <AbilityDNA portrait={portrait} certScore={certScore} />
+        </div>
+
+        {/* Dimension Detail Cards */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {dims.map((d, i) => (
+            <ScoreCard key={d} dim={d} score={portrait[d]} index={i} />
+          ))}
+        </div>
+
+        {/* Trial History */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="rounded-xl p-5 border mb-6"
+          style={{
+            background: 'var(--color-card)',
+            borderColor: 'var(--color-border)',
+            boxShadow: '0px 0px 0px 1px rgba(0,0,0,0.06)',
+          }}
+        >
+          <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-text)' }}>
+            <BookOpen size={18} /> 评测历史
+          </h2>
+          <div className="space-y-2">
+            {trialHistory.map((t: any, idx: number) => {
+              const prevSame = idx > 0 && trialHistory[idx - 1].name === t.name;
+              const attemptCount = trialHistory.filter((h: any, i: number) => i <= idx && h.name === t.name).length;
+              return (
+                <div
+                  key={`${t.name}-${idx}`}
+                  className="flex items-center justify-between rounded-lg px-4 py-3 border"
+                  style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
+                        {t.name}
+                        {attemptCount > 1 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(201,100,66,0.1)', color: '#c96442' }}>
+                            第{attemptCount}次
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>{t.date}</div>
+                    </div>
+                  </div>
+                  <span className="font-bold" style={{ color: 'var(--color-brand)' }}>{t.score}</span>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* 成长时间线 */}
+        {trialHistory.length >= 1 && (
+          <div className="mb-6">
+            <GrowthTimeline history={trialHistory} />
+          </div>
+        )}
+
+        {/* 赛季徽章 + 能力保鲜度 */}
+        <div className="mb-6">
+          <SeasonBadge freshness={apiData?.abilityFreshness} />
+        </div>
 
         {/* 能力成长路径 */}
         {hasEvaluation && (() => {
@@ -386,8 +438,12 @@ export default function Profile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="rounded-2xl p-6 mt-4"
-              style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)' }}
+              className="rounded-xl p-5 border mb-6"
+              style={{
+                background: 'var(--color-card)',
+                borderColor: 'var(--color-border)',
+                boxShadow: '0px 0px 0px 1px rgba(0,0,0,0.06)',
+              }}
             >
               <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-text)' }}>
                 <i className="bi bi-signpost-2" style={{ fontSize: '18px', color: 'var(--color-brand)' }} /> 成长路径
@@ -413,21 +469,21 @@ export default function Profile() {
 
         {/* 智能职业路径规划 */}
         {hasEvaluation && (
-          <div className="mt-4">
+          <div className="mb-6">
             <CareerPath portrait={portrait} certScore={certScore} />
           </div>
         )}
 
         {/* 技能树解锁系统 */}
         {hasEvaluation && (
-          <div className="mt-6">
+          <div className="mb-6">
             <SkillTree portrait={portrait} certScore={certScore} trialCount={trialHistory.length} />
           </div>
         )}
 
         {/* 社区盲评 */}
         {hasEvaluation && (
-          <div className="mt-6">
+          <div className="mb-6">
             <PeerReview certScore={certScore} userId={userId || ''} />
           </div>
         )}

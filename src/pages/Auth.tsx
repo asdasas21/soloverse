@@ -32,9 +32,9 @@ export default function Auth() {
     }
   }
 
-  const handleDemo = async () => {
+  const handleDemo = async (email: string, password: string) => {
     setError('')
-    const result = await signIn('demo@talentx.dev', 'demo123456')
+    const result = await signIn(email, password)
     if (result.error) setError(result.error)
   }
 
@@ -127,6 +127,33 @@ export default function Auth() {
               />
             </div>
 
+            {mode === 'login' && (
+              <div className="flex justify-end -mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const email = prompt('请输入注册邮箱，我们将发送重置链接：');
+                    if (email) {
+                      import('@supabase/supabase-js').then(({ createClient }) => {
+                        const supabase = createClient(
+                          import.meta.env.VITE_SUPABASE_URL,
+                          import.meta.env.VITE_SUPABASE_ANON_KEY
+                        );
+                        supabase.auth.resetPasswordForEmail(email).then(({ error }) => {
+                          if (error) alert('发送失败：' + error.message);
+                          else alert('重置链接已发送到你的邮箱，请查收');
+                        });
+                      });
+                    }
+                  }}
+                  className="text-xs hover:underline"
+                  style={{ color: '#87867f' }}
+                >
+                  忘记密码？
+                </button>
+              </div>
+            )}
+
             {error && (
               <motion.p
                 initial={{ opacity: 0 }}
@@ -154,16 +181,43 @@ export default function Auth() {
             </motion.button>
           </form>
 
-          {/* Demo login */}
+          {/* Demo accounts */}
           <div className="mt-4 pt-4 border-t border-[#e8e6dc]">
-            <button
-              onClick={handleDemo}
-              className="w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-              style={{ background: 'rgba(201,100,66,0.08)', color: '#c96442' }}
-            >
-              <Sparkles size={14} />
-              体验演示账号
-            </button>
+            <p className="text-xs text-center mb-3" style={{ color: '#87867f' }}>演示账号（点击直接登录）</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleDemo('demo@talentx.dev', 'demo123456')}
+                className="py-2 px-3 rounded-lg text-xs font-medium flex flex-col items-center gap-0.5 transition-colors"
+                style={{ background: 'rgba(201,100,66,0.08)', color: '#c96442' }}
+              >
+                <span className="flex items-center gap-1"><Sparkles size={12} /> 高分演示</span>
+                <span className="text-[10px] opacity-70">C3 专家级</span>
+              </button>
+              <button
+                onClick={() => handleDemo('mid@talentx.dev', 'mid123456')}
+                className="py-2 px-3 rounded-lg text-xs font-medium flex flex-col items-center gap-0.5 transition-colors"
+                style={{ background: 'rgba(217,119,87,0.08)', color: '#d97757' }}
+              >
+                <span>中分演示</span>
+                <span className="text-[10px] opacity-70">C2 专业级</span>
+              </button>
+              <button
+                onClick={() => handleDemo('low@talentx.dev', 'low123456')}
+                className="py-2 px-3 rounded-lg text-xs font-medium flex flex-col items-center gap-0.5 transition-colors"
+                style={{ background: 'rgba(123,155,110,0.08)', color: '#7b9b6e' }}
+              >
+                <span>低分演示</span>
+                <span className="text-[10px] opacity-70">C1 基础级</span>
+              </button>
+              <button
+                onClick={() => handleDemo('enterprise@talentx.dev', 'ent123456')}
+                className="py-2 px-3 rounded-lg text-xs font-medium flex flex-col items-center gap-0.5 transition-colors"
+                style={{ background: 'rgba(91,107,140,0.08)', color: '#5b6b8c' }}
+              >
+                <span>企业端演示</span>
+                <span className="text-[10px] opacity-70">HR 视角</span>
+              </button>
+            </div>
           </div>
         </div>
 

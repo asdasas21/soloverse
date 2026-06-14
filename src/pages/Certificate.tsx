@@ -198,11 +198,11 @@ export default function Certificate() {
           <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-white text-[#141413] border border-[#e8e6dc]">
             <Printer size={16} /> 打印
           </button>
-          <button onClick={handleShare} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: '#c96442' }}>
-            <Share2 size={16} /> 分享
+          <button onClick={handleShare} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: '#c96442' }} title="复制验证链接到剪贴板">
+            <Share2 size={16} /> 复制验证链接
           </button>
-          <button onClick={() => setShowShareCard(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'linear-gradient(135deg, #c96442, #d97757)' }}>
-            <Image size={16} /> 分享卡片
+          <button onClick={() => setShowShareCard(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white" style={{ background: 'linear-gradient(135deg, #c96442, #d97757)' }} title="生成可保存的图片卡片">
+            <Image size={16} /> 生成分享图
           </button>
         </motion.div>
 

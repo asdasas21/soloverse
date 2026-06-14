@@ -59,10 +59,8 @@ function TrialCardComponent({ trial, index }: { trial: TrialCard; index: number 
       </div>
 
       <button
-        className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
+        className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors hover:bg-[#d97757]"
         style={{ background: "#c96442" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#d97757")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "#c96442")}
         onClick={(e) => {
           e.stopPropagation();
           navigate(`/trials/${trial.id}`);
@@ -135,7 +133,7 @@ export default function Trials() {
             className="text-center py-12 text-[#87867f] text-sm"
           >
             <p><i className="bi bi-exclamation-triangle" style={{ color: '#c96442' }} /> {error}</p>
-            <p className="mt-1 text-xs">已加载本地数据</p>
+            <button onClick={() => window.location.reload()} className="mt-3 text-xs underline" style={{ color: '#c96442' }}>点击重试</button>
           </motion.div>
         )}
 

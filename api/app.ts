@@ -20,6 +20,7 @@ import certRoutes from './routes/cert.js'
 import leaderboardRoutes from './routes/leaderboard.js'
 import enterpriseRoutes from './routes/enterprise.js'
 import skillsRouter, { codingEventsRouter } from './routes/skills.js'
+import demoRoutes from './routes/demo.js'
 
 dotenv.config({ override: true })
 
@@ -98,6 +99,7 @@ app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/enterprise', enterpriseRoutes)
 app.use('/api/skills', skillsRouter)
 app.use('/api/coding-events', codingEventsRouter)
+app.use('/api/demo', demoRoutes)
 
 /**
  * Health check

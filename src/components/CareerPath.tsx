@@ -160,6 +160,12 @@ export default function CareerPath({ portrait, certScore: _certScore }: CareerPa
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.4 }}
+        className="rounded-xl p-5 border"
+        style={{
+          background: 'var(--color-card)',
+          borderColor: 'var(--color-border)',
+          boxShadow: '0px 0px 0px 1px rgba(0,0,0,0.06)',
+        }}
       >
         <h2
           className="text-lg font-bold mb-4 flex items-center gap-2"
@@ -371,6 +377,12 @@ export default function CareerPath({ portrait, certScore: _certScore }: CareerPa
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4, delay: 0.2 }}
+          className="rounded-xl p-5 border"
+          style={{
+            background: 'var(--color-card)',
+            borderColor: 'var(--color-border)',
+            boxShadow: '0px 0px 0px 1px rgba(0,0,0,0.06)',
+          }}
         >
           <h2
             className="text-lg font-bold mb-4 flex items-center gap-2"

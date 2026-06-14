@@ -7,9 +7,14 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
+
+# Environment files
 *.local
 .env
 .env.*
@@ -27,6 +32,16 @@ dist-ssr
 .vite
 .vercel
 
+# Trae IDE
+.trae/
+
 # 截图和 worktree
 screenshots/
+screenshot*.png
 worktree-*/
+
+# 内部开发文档和测试文件
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx

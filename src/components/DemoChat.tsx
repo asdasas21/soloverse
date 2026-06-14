@@ -114,7 +114,8 @@ export function DemoChat() {
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="rounded-xl px-4 py-3 text-sm" style={{ background: '#f0eee5', color: '#87867f' }}>
+            <div className="rounded-xl px-4 py-3 text-sm flex items-center gap-2" style={{ background: '#f0eee5', color: '#87867f' }}>
+              <span>正在思考...</span>
               <span className="inline-flex gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -164,6 +165,26 @@ export function DemoChat() {
           <Send size={16} />
         </button>
       </div>
+
+      {/* 快捷问题引导 */}
+      {!hasInteracted && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {[
+            '如何设计一个高并发系统？',
+            '什么是微服务架构？',
+            '如何做好代码审查？',
+          ].map((q) => (
+            <button
+              key={q}
+              onClick={() => { setInput(q); }}
+              className="text-xs px-2.5 py-1.5 rounded-full border transition-colors hover:bg-[#c96442] hover:text-white hover:border-[#c96442]"
+              style={{ borderColor: '#e8e6dc', color: '#5e5d59', background: '#fff' }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

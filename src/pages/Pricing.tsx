@@ -22,12 +22,13 @@ export default function Pricing() {
 
   async function loadData() {
     try {
-      const data = await getPlans()
-      setPlans(data.plans)
-      setReports(data.reports)
+      const raw = await getPlans()
+      const data = (raw as any).data ?? raw
+      setPlans(data.plans ?? [])
+      setReports(data.reports ?? [])
       if (user) {
-        const sub = await getSubscription()
-        setSubscription(sub)
+        const subRaw = await getSubscription()
+        setSubscription((subRaw as any).data ?? subRaw)
       }
     } catch {
       show('加载失败，请刷新重试', 'error')
@@ -46,14 +47,16 @@ export default function Pricing() {
     setPaying(planId)
     try {
       // 1. 创建订单
-      const order = await createOrder('subscription', planId)
+      const orderRaw = await createOrder('subscription', planId)
+      const order = (orderRaw as any).data ?? orderRaw
       // 2. 模拟支付
-      const result = await payOrder(order.id)
+      const payRaw = await payOrder(order.id)
+      const result = (payRaw as any).data ?? payRaw
       if (result.paid) {
         show(`${result.planName || '订阅'}成功！`, 'success')
         // 刷新订阅状态
-        const sub = await getSubscription()
-        setSubscription(sub)
+        const subRaw = await getSubscription()
+        setSubscription((subRaw as any).data ?? subRaw)
       }
     } catch (e) {
       show(e instanceof Error ? e.message : '支付失败', 'error')
@@ -70,8 +73,10 @@ export default function Pricing() {
 
     setPaying(reportId)
     try {
-      const order = await createOrder('report', reportId)
-      const result = await payOrder(order.id)
+      const orderRaw = await createOrder('report', reportId)
+      const order = (orderRaw as any).data ?? orderRaw
+      const payRaw = await payOrder(order.id)
+      const result = (payRaw as any).data ?? payRaw
       if (result.paid) {
         show('购买成功！正在生成报告...', 'success')
         // 导航到报告生成页

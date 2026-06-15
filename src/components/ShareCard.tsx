@@ -27,6 +27,7 @@ interface ShareCardProps {
   certLevel: string | null;
   certScore: number;
   portrait: Portrait;
+  userId?: string;
   onClose: () => void;
 }
 
@@ -115,21 +116,24 @@ export default function ShareCard({
   certLevel,
   certScore,
   portrait,
+  userId,
   onClose,
 }: ShareCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
 
-  // 生成验证二维码
+  // 生成验证二维码 — 指向公开证书页面，无需登录即可查看
   useEffect(() => {
-    const verifyUrl = `${window.location.origin}/profile`;
+    const verifyUrl = userId
+      ? `${window.location.origin}/cert/${userId}`
+      : `${window.location.origin}`;
     QRCode.toDataURL(verifyUrl, {
       width: 260,
       margin: 1,
       color: { dark: '#141413', light: '#ffffff' },
       errorCorrectionLevel: 'M',
     }).then(setQrDataUrl).catch(() => {});
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

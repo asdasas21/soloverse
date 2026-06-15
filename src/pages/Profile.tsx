@@ -536,6 +536,7 @@ export default function Profile() {
           certLevel={certLevel}
           certScore={certScore}
           portrait={portrait}
+          userId={userId}
           onClose={() => setShowShareCard(false)}
         />
       )}

@@ -1,21 +1,34 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-let _client: SupabaseClient | null = null
+/**
+ * 创建 Supabase 客户端
+ * 环境变量缺失时抛出错误，避免创建无效连接导致请求挂起
+ */
+function createSupabaseClient(): SupabaseClient {
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error('SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY 环境变量必须配置')
+  }
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
-/** Lazy-initialized Supabase client — waits until env vars are loaded */
+/** Lazy-initialized Supabase client */
+let _client: SupabaseClient | null = null
+export function getSupabase(): SupabaseClient {
+  if (!_client) _client = createSupabaseClient()
+  return _client
+}
+
+/**
+ * 兼容性代理 — 允许 `import { supabase }` 直接使用
+ * 首次访问属性时懒加载，环境变量缺失时抛出清晰错误
+ */
 export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
-    if (!_client) {
-      const url = process.env.SUPABASE_URL || ''
-      const key = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-      if (!url || !key) {
-        console.warn('[supabase] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY — DB features disabled')
-      }
-      _client = createClient(url, key, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-    }
-    return Reflect.get(_client, prop)
+    return Reflect.get(getSupabase(), prop)
   },
 })
 

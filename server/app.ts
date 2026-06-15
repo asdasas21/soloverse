@@ -63,44 +63,45 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' })) // Reduced from 10mb
 app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 
-// --- Rate limiting: Global (per IP) ---
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // 200 requests per 15 min per IP
+// --- Rate limiting 配置 ---
+// Vercel 等反向代理环境会注入 Forwarded / X-Forwarded-For headers
+// 禁用 express-rate-limit 的代理 header 验证（这些验证在代理环境下是误报）
+const rateLimitConfig = {
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
+  validate: false,
+}
+
+// --- Rate limiting: Global (per IP) ---
+const globalLimiter = rateLimit({
+  ...rateLimitConfig,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // 200 requests per 15 min per IP
   message: { success: false, error: '请求过于频繁，请稍后再试' },
 })
 app.use('/api/', globalLimiter)
 
 // --- Rate limiting: Chat (stricter — costs GLM API calls) ---
 const chatLimiter = rateLimit({
+  ...rateLimitConfig,
   windowMs: 60 * 1000, // 1 minute
   max: 10, // 10 chat messages per minute per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: { success: false, error: '对话频率过高，请等待一分钟后再试' },
 })
 
 // --- Rate limiting: Evaluate (very strict — creates certificates) ---
 const evaluateLimiter = rateLimit({
+  ...rateLimitConfig,
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // 5 evaluations per hour per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: { success: false, error: '提交次数过多，请稍后再试' },
 })
 
 // --- Rate limiting: Trial actions (moderate — triggers GLM calls) ---
 const trialActionLimiter = rateLimit({
+  ...rateLimitConfig,
   windowMs: 60 * 1000, // 1 minute
   max: 30, // 30 actions per minute per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: { success: false, error: '操作频率过高，请稍后再试' },
 })
 

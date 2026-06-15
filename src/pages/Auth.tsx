@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { Trophy, Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 
 export default function Auth() {
@@ -54,15 +54,14 @@ export default function Auth() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <motion.div
+          <motion.img
+            src="/logo.svg"
+            alt="TalentX"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
-            style={{ background: '#c96442' }}
-          >
-            <Trophy size={28} className="text-white" />
-          </motion.div>
+            className="w-16 h-16 mx-auto mb-4"
+          />
           <h1 className="text-3xl font-bold text-[#141413]" style={{ fontFamily: "'Playfair Display', serif" }}>
             TalentX
           </h1>

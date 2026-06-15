@@ -208,7 +208,10 @@ export default function Landing() {
         boxShadow: scrolled ? '0 1px 0 rgba(0,0,0,0.05)' : 'none',
       }}>
         <div className="max-w-5xl mx-auto flex items-center justify-between px-6 py-4">
-          <span className="text-xl font-bold cursor-pointer" onClick={() => navigate('/')} style={{ fontFamily: "'Playfair Display', serif", color: '#141413' }}>TalentX</span>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+            <img src="/logo.svg" alt="TalentX" className="w-8 h-8" />
+            <span className="text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif", color: '#141413' }}>TalentX</span>
+          </div>
           <div className="hidden md:flex items-center gap-4 text-sm" style={{ color: '#5e5d59' }}>
             <NavLinks />
           </div>
@@ -494,6 +497,7 @@ export default function Landing() {
       <footer className="py-12 px-6 border-t" style={{ borderColor: '#e8e6dc', background: '#f5f4ed' }}>
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm" style={{ color: '#87867f' }}>
           <div className="flex items-center gap-2">
+            <img src="/logo.svg" alt="TalentX" className="w-6 h-6" />
             <span className="font-bold text-lg" style={{ fontFamily: "'Playfair Display', serif", color: '#141413' }}>TalentX</span>
             <span className="text-xs">AI 驱动的能力认证平台</span>
           </div>
